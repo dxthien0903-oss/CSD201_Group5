@@ -1,0 +1,4 @@
+algorithm,variant,dataset,N,K,seed,elapsed_ms,heap_before_bytes,heap_peak_bytes,output_check,comparisons,max_depth,mode,aux_bytes,sorted_ok,rep,jdk,os,arch,cores,max_heap_bytes,run_id
+quick,hoare-med3,d1,100000,,20261016,,,,224665127727807511,2426192,32,count,,true,1,1.8.0_45,Windows 8.1,amd64,16,3817865216,audit-jdk8-probe
+quick,hoare-med3,d1,1000000,,20261016,,,,-4074488443990278306,28451182,42,count,,true,1,1.8.0_45,Windows 8.1,amd64,16,3817865216,audit-jdk8-probe
+quick,hoare-med3,d1,10000000,,20261016,,,,-3583293926727458609,326328813,49,count,,true,1,1.8.0_45,Windows 8.1,amd64,16,3817865216,audit-jdk8-probe

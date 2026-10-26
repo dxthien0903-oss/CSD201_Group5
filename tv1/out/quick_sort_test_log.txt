@@ -1,0 +1,60 @@
+QuickSort correctness suite (TV1)
+algorithm=quick variant=hoare-med3
+java.version=1.8.0_45 java.vm.name=Java HotSpot(TM) 64-Bit Server VM
+
+[fixed cases]
+PASS fixed#1
+PASS fixed#2
+PASS fixed#3
+PASS fixed#4
+PASS fixed#5
+PASS fixed#6
+PASS fixed#7
+PASS fixed#8
+PASS fixed#9
+PASS fixed#10
+[sub-segment contract: sort(a, lo, hi)]
+PASS sub-segment sorts only [2, 8)
+PASS sub-segment of size 1 is a no-op
+PASS empty sub-range is a no-op
+PASS sub-segment covering the whole array sorts it
+PASS out-of-range hi is rejected
+[large fixed-shape cases, N=100000]
+PASS N=100000 all-equal
+PASS N=100000 ascending
+PASS N=100000 descending
+PASS N=100000 two-value extremes
+[randomized comparison against Arrays.sort]
+PASS 1000 random arrays, N in [0, 100], full key range
+PASS 200 random arrays, N in [0, 100], duplicate-heavy domain {0..3}
+PASS empty array stays empty
+[counted mode]
+PASS counted run sorts correctly
+PASS counted run reports comparisons > 0
+PASS counted run reports maxDepth >= 1
+  n=5000 seed=7 -> comparisons=94319, maxDepth=24
+PASS all-equal N=100000 stays correct in counted mode
+PASS all-equal N=100000 keeps depth balanced (maxDepth <= 64)
+  all-equal N=100000 -> comparisons=2130043, maxDepth=18
+PASS ascending N=100000 stays correct in counted mode
+PASS ascending N=100000 keeps depth balanced (maxDepth <= 64)
+  ascending N=100000 -> comparisons=2003389, maxDepth=18
+PASS descending N=100000 stays correct in counted mode
+PASS descending N=100000 keeps depth balanced (maxDepth <= 64)
+  descending N=100000 -> comparisons=2003391, maxDepth=18
+PASS counted sub-segment sorts only the requested range
+PASS counted sub-segment reports statistics
+[exhaustive small-input sweep]
+PASS all 3280 arrays of length 0..7 over {0,1,2} sort correctly
+PASS all 46233 permutations of length 1..8 sort correctly
+[D1/D2 generators]
+PASS D1 is reproducible for the same seed
+PASS D1 differs for a different seed
+PASS D1 keys stay in [0, 2^31 - 1]
+PASS D2 is ascending
+PASS D2 keeps the exact multiset of D1
+PASS D1 of size 1 is valid
+PASS D2 of size 1 is a copy
+
+SUMMARY passed=42 failed=0
+RESULT ALL_TESTS_PASSED

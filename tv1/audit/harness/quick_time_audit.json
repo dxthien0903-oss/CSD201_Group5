@@ -1,0 +1,15 @@
+{
+  "run_id": "audit-time-1",
+  "mode": "time",
+  "dataset": "d1",
+  "seed": 20261016,
+  "ns": [100000],
+  "reps": 1,
+  "java_version": "17.0.18",
+  "java_vm": "OpenJDK 64-Bit Server VM",
+  "os": "Windows 11 10.0",
+  "arch": "amd64",
+  "available_processors": 16,
+  "max_heap_bytes": 2147483648,
+  "note": "TV1 provisional harness; official memory numbers must come from the shared TV3 framework"
+}
