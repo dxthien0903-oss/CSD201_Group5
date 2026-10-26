@@ -9,12 +9,18 @@ import java.util.Random;
  * <pre>
  * D1 – Random (ngẫu nhiên hoàn toàn)
  * D2 – Sorted (tăng dần)
- * D3 – Reverse sorted (giảm dần – worst-case điển hình)
- * D4 – Nearly sorted (gần tăng dần, ~5% phần tử bị hoán vị)
- * D5 – Many duplicates (phạm vi giá trị nhỏ ≈ √n → nhiều trùng lặp)
+ * D3 – D2 đảo ngược (giảm dần – worst-case điển hình)
+ * D4 – D2 sau khi hoán đổi ngẫu nhiên N/1.000 cặp (gần tăng dần)
+ * D5 – Many duplicates (phạm vi giá trị K → nhiều trùng lặp, mặc định K=√n)
  * </pre>
  *
  * Mỗi phương thức {@code generate*()} trả về mảng MỚI, không thay đổi tham số.
+ *
+ * <p><b>Lịch sử sửa đổi:</b>
+ * <ul>
+ *   <li>D4: swaps = N/1000 (theo đặc tả đề bài), trước đây dùng N/20</li>
+ *   <li>D5: thêm {@link #generateManyDuplicatesK} hỗ trợ K tuỳ chỉnh cho RQ2</li>
+ * </ul>
  */
 public final class DataGenerator {
 
@@ -101,17 +107,20 @@ public final class DataGenerator {
     // -------------------------------------------------------------------------
 
     /**
-     * D4: Mảng gần tăng dần – bắt đầu từ mảng sorted rồi hoán vị ~5% phần tử.
+     * D4: D2 sau khi hoán đổi ngẫu nhiên N/1.000 cặp vị trí.
      *
-     * <p>Số cặp hoán vị = {@code max(1, size / 20)} (làm tròn xuống).
-     * Điều này mô phỏng thực tế: dữ liệu được sắp xếp nhưng có ít lỗi thứ tự.
+     * <p>Số cặp hoán vị = {@code max(1, size / 1000)} (làm tròn xuống).
+     * Phối hợp TV1: D4 là D2 (sorted) với N/1.000 cặp bị hoán vị ngẫu nhiên.
+     *
+     * <p><b>Lưu ý:</b> Phiên bản cũ dùng {@code size/20} (~5%) – đã sửa thành
+     * {@code size/1000} (0.1%) theo đặc tả đề bài.
      */
     public static int[] generateNearlySorted(int size, Random random) {
         int[] arr = generateSorted(size);
         if (size < 2) {
             return arr; // không thể hoán vị khi chưa đủ 2 phần tử
         }
-        int swaps = Math.max(1, size / 20); // ~5%
+        int swaps = Math.max(1, size / 1000); // N/1.000 cặp theo đặc tả
         for (int i = 0; i < swaps; i++) {
             int a = random.nextInt(size);
             int b = random.nextInt(size);
@@ -127,16 +136,34 @@ public final class DataGenerator {
     // -------------------------------------------------------------------------
 
     /**
-     * D5: Mảng ngẫu nhiên với phạm vi giá trị nhỏ ≈ √n.
+     * D5: Mảng ngẫu nhiên với phạm vi giá trị nhỏ ≈ √n (mặc định).
      *
      * <p>Ví dụ n=10 000 → phạm vi ≈ 100, tức trung bình mỗi giá trị xuất hiện ~100 lần.
      * Test case căng thẳng cho partition three-way và so sánh bằng nhau.
+     *
+     * @see #generateManyDuplicatesK(int, int, Random) cho K tuỳ chỉnh (dùng trong RQ2)
      */
     public static int[] generateManyDuplicates(int size, Random random) {
-        int[] arr  = new int[size];
-        int range  = Math.max(1, (int) Math.sqrt(size)); // ~√n giá trị khác nhau
+        int range = Math.max(1, (int) Math.sqrt(size)); // ~√n giá trị khác nhau
+        return generateManyDuplicatesK(size, range, random);
+    }
+
+    /**
+     * D5 với K tuỳ chỉnh: mảng ngẫu nhiên trong phạm vi [0, K).
+     *
+     * <p>Dùng cho RQ2 với K = 1.000, K = 10, K = 2.
+     * K = 2 tương đương mảng chỉ gồm 0 và 1 (căng thẳng nhất).
+     *
+     * @param size   số phần tử
+     * @param k      số giá trị phân biệt (phạm vi [0, k))
+     * @param random nguồn ngẫu nhiên
+     * @return mảng mới kích thước {@code size}
+     */
+    public static int[] generateManyDuplicatesK(int size, int k, Random random) {
+        if (k < 1) throw new IllegalArgumentException("k must be >= 1, got: " + k);
+        int[] arr = new int[size];
         for (int i = 0; i < size; i++) {
-            arr[i] = random.nextInt(range);
+            arr[i] = random.nextInt(k);
         }
         return arr;
     }
