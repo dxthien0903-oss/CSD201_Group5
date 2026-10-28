@@ -312,8 +312,14 @@ public final class Benchmark {
             runOne(algo, dist, size, new Random(cellSeed + w), k, null, null);
         }
 
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb   = new StringBuilder();
         String fmt = "%-12s %-10s %12s  %10s  %16s  %16s  %12s%n";
+
+        long totalNs  = 0;
+        long totalCmp = 0;
+        long totalAsn = 0;
+        long totalMem = 0;
+        int  okRuns   = 0;
 
         for (int r = 0; r < runs; r++) {
             Random rng    = new Random(cellSeed + r);
@@ -323,6 +329,11 @@ public final class Benchmark {
             String status = "OK";
             try {
                 runOne(algo, dist, size, rng, k, timeNs, met);
+                totalNs  += timeNs[0];
+                totalCmp += met[0];
+                totalAsn += met[1];
+                totalMem += met[2];
+                okRuns++;
             } catch (OutOfMemoryError oom) {
                 status = "OOM";
                 System.err.println("[OOM] " + algo + " " + dist + " N=" + size);
@@ -342,7 +353,21 @@ public final class Benchmark {
                 outputCheck, status));
         }
 
-        // In tóm tắt ra console (trung bình)
+        // In dòng tóm tắt trung bình ra console
+        if (okRuns > 0) {
+            System.out.printf(fmt,
+                algo, dist,
+                String.format(Locale.ROOT, "%,d", (long) size),
+                String.format(Locale.ROOT, "%.2f", totalNs / 1e6 / okRuns),
+                String.format(Locale.ROOT, "%,d", totalCmp / okRuns),
+                String.format(Locale.ROOT, "%,d", totalAsn / okRuns),
+                String.format(Locale.ROOT, "%.1f", totalMem / 1024.0 / okRuns));
+        } else {
+            System.out.printf(fmt, algo, dist,
+                String.format(Locale.ROOT, "%,d", (long) size),
+                "FAILED", "-", "-", "-");
+        }
+
         return sb.toString();
     }
 
