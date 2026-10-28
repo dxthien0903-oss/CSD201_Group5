@@ -133,7 +133,7 @@ public final class ExperimentRunner {
             case "D4" -> {
                 Arrays.sort(values);
                 if (length > 1) {
-                    int swaps = Math.max(1, length / 20);
+                    int swaps = Math.max(1, length / 1000); // N/1000 theo đặc tả (khớp DataGenerator)
                     for (int index = 0; index < swaps; index++) {
                         swap(values, random.nextInt(length), random.nextInt(length));
                     }
