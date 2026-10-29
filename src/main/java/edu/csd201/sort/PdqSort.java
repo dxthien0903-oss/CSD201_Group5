@@ -11,14 +11,22 @@ public final class PdqSort {
     }
 
     public static void sort(int[] values) {
-        sort(values, true, new SortMetrics());
+        sort(values, true, true, new SortMetrics());
     }
 
     public static void sortWithoutMechanismA(int[] values) {
-        sort(values, false, new SortMetrics());
+        sort(values, false, true, new SortMetrics());
+    }
+
+    public static void sortWithoutMechanismB(int[] values) {
+        sort(values, true, false, new SortMetrics());
     }
 
     public static void sort(int[] values, boolean mechanismAEnabled, SortMetrics metrics) {
+        sort(values, mechanismAEnabled, true, metrics);
+    }
+
+    public static void sort(int[] values, boolean mechanismAEnabled, boolean mechanismBEnabled, SortMetrics metrics) {
         Objects.requireNonNull(values, "values");
         Objects.requireNonNull(metrics, "metrics");
         if (values.length < 2) {
@@ -27,7 +35,7 @@ public final class PdqSort {
 
         int badPartitionBudget = 2 * (31 - Integer.numberOfLeadingZeros(values.length));
         sortRange(values, 0, values.length, badPartitionBudget, 1, false,
-            mechanismAEnabled, metrics);
+            mechanismAEnabled, mechanismBEnabled, metrics);
     }
 
     private static void sortRange(
@@ -38,6 +46,7 @@ public final class PdqSort {
             int depth,
             boolean breakPatternsBeforePartition,
             boolean mechanismAEnabled,
+            boolean mechanismBEnabled,
             SortMetrics metrics) {
         metrics.recordDepth(depth);
         boolean breakPatternsOnNextPartition = breakPatternsBeforePartition;
@@ -54,7 +63,7 @@ public final class PdqSort {
                 breakPatternsOnNextPartition = false;
             }
             int pivot = choosePivot(values, low, high);
-            Partition partition = partitionThreeWay(values, low, high, pivot);
+            Partition partition = partitionThreeWay(values, low, high, pivot, mechanismBEnabled);
             metrics.recordPartition();
 
             int leftSize = partition.equalStart - low;
@@ -76,11 +85,11 @@ public final class PdqSort {
 
             if (leftSize < rightSize) {
                 sortRange(values, low, partition.equalStart, badPartitionBudget, depth + 1,
-                    breakPatternsOnNextPartition, mechanismAEnabled, metrics);
+                    breakPatternsOnNextPartition, mechanismAEnabled, mechanismBEnabled, metrics);
                 low = partition.equalEnd;
             } else {
                 sortRange(values, partition.equalEnd, high, badPartitionBudget, depth + 1,
-                    breakPatternsOnNextPartition, mechanismAEnabled, metrics);
+                    breakPatternsOnNextPartition, mechanismAEnabled, mechanismBEnabled, metrics);
                 high = partition.equalStart;
             }
         }
@@ -115,7 +124,7 @@ public final class PdqSort {
         return values[second] < values[third] ? third : second;
     }
 
-    private static Partition partitionThreeWay(int[] values, int low, int high, int pivot) {
+    private static Partition partitionThreeWay(int[] values, int low, int high, int pivot, boolean mechanismBEnabled) {
         int less = low;
         int current = low;
         int greater = high;
@@ -136,6 +145,10 @@ public final class PdqSort {
             } else {
                 current++;
             }
+        }
+        if (!mechanismBEnabled) {
+            int singleEqualEnd = Math.min(greater, less + 1);
+            return new Partition(less, singleEqualEnd, alreadyPartitioned);
         }
         return new Partition(less, greater, alreadyPartitioned);
     }

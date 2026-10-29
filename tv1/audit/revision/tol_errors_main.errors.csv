@@ -1,2 +1,0 @@
-algorithm,variant,dataset,N,seed,mode,rep,error,message,top_frame
-quick,hoare-med3,d1,5000000,20261016,time,1,java.lang.OutOfMemoryError,"Java heap space","sorting.DataGenerator.d1(DataGenerator.java:30)"

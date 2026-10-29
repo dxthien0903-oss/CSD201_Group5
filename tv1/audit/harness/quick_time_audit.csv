@@ -1,2 +1,0 @@
-algorithm,variant,dataset,N,K,seed,elapsed_ms,heap_before_bytes,heap_peak_bytes,output_check,comparisons,max_depth,mode,aux_bytes,sorted_ok,rep,jdk,os,arch,cores,max_heap_bytes,run_id
-quick,hoare-med3,d1,100000,,20261016,12.200,1407160,1449120,224665127727807511,,,time,41960,true,1,17.0.18,Windows 11,amd64,16,2147483648,audit-time-1

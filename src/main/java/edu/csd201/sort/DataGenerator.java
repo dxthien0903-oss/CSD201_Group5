@@ -55,6 +55,26 @@ public final class DataGenerator {
         };
     }
 
+    // TV1 D1/D2 helpers (SplittableRandom)
+    public static int[] d1(int n, long seed) {
+        if (n < 0) throw new IllegalArgumentException("n must be >= 0: " + n);
+        java.util.SplittableRandom rnd = new java.util.SplittableRandom(seed);
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = rnd.nextInt() & 0x7FFFFFFF;
+        return a;
+    }
+
+    public static int[] d2(int[] d1) {
+        if (d1 == null) throw new NullPointerException("d1");
+        int[] a = d1.clone();
+        java.util.Arrays.sort(a);
+        return a;
+    }
+
+    public static int[] d2(int n, long seed) {
+        return d2(d1(n, seed));
+    }
+
     // -------------------------------------------------------------------------
     // D1 – Random
     // -------------------------------------------------------------------------
@@ -66,7 +86,7 @@ public final class DataGenerator {
     public static int[] generateRandom(int size, Random random) {
         int[] arr = new int[size];
         for (int i = 0; i < size; i++) {
-            arr[i] = random.nextInt();
+            arr[i] = random.nextInt() & 0x7FFFFFFF;
         }
         return arr;
     }

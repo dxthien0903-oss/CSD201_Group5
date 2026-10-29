@@ -1,0 +1,8 @@
+Dataset,QuickSort_TV1_ms,MergeSort_TV2_ms,PdqSort_TV5_ms,RadixSort_TV4_ms,ArraysSort_JDK_ms,Fastest_Algorithm
+D1 (Random - Ngau nhien deu),137.976,196.924,199.254,23.195,164.367,RadixSort
+D2 (Sorted - Tang dan san),28.795,85.708,8.877,34.447,2.663,Arrays.sort
+D3 (Nearly Sorted - Gan tang dan),26.836,91.138,21.430,23.797,27.331,PdqSort
+D4 (Reverse - Giam dan hoan toan),30.699,88.403,4.167,25.614,15.860,PdqSort
+D5 (Trung lap K=1000 gia tri),71.152,135.746,185.817,14.496,45.342,RadixSort
+D5 (Trung lap K=10 gia tri),39.969,100.589,134.288,17.256,16.727,Arrays.sort
+D5 (Trung lap K=2 chi gom 0 va 1),28.268,80.460,96.426,17.381,6.137,Arrays.sort
