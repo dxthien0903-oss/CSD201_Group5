@@ -121,6 +121,15 @@ public final class QuickSortTest {
             assertTrue(sortMatchesArraysSort(a), "Duplicate array #" + i + " must match Arrays.sort");
         }
 
+        int[] kChoices = {1000, 10, 2};
+        for (int i = 0; i < RANDOM_CASES; i++) {
+            String dist = DataGenerator.DISTRIBUTIONS[i % DataGenerator.DISTRIBUTIONS.length];
+            int n = rnd.nextInt(0, 101);
+            int k = "D5".equals(dist) ? kChoices[i % kChoices.length] : 0;
+            int[] a = DataGenerator.generateSpec(dist, n, k, 20261016L + i);
+            assertTrue(sortMatchesArraysSort(a), "Spec " + dist + " array #" + i + " must match Arrays.sort");
+        }
+
         int[] empty = new int[0];
         assertTrue(sortMatchesArraysSort(empty), "empty array stays empty");
     }
@@ -385,6 +394,19 @@ public final class QuickSortTest {
             }
         }
         expect("200 random arrays, N in [0, 100], duplicate-heavy domain {0..3}", badSmallDomain == 0);
+
+        int badSpecD1ToD5 = 0;
+        int[] kChoices = {1000, 10, 2};
+        for (int i = 0; i < RANDOM_CASES; i++) {
+            String dist = DataGenerator.DISTRIBUTIONS[i % DataGenerator.DISTRIBUTIONS.length];
+            int n = rnd.nextInt(0, 101);
+            int k = "D5".equals(dist) ? kChoices[i % kChoices.length] : 0;
+            int[] a = DataGenerator.generateSpec(dist, n, k, 20261016L + i);
+            if (!sortMatchesArraysSort(a)) {
+                badSpecD1ToD5++;
+            }
+        }
+        expect("1000 random arrays across D1-D5, N in [0, 100]", badSpecD1ToD5 == 0);
 
         int[] empty = new int[0];
         expect("empty array stays empty", sortMatchesArraysSort(empty));

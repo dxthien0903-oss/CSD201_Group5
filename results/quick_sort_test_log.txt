@@ -27,6 +27,7 @@ PASS N=100000 two-value extremes
 [randomized cases]
 PASS 1000 random arrays, N in [0, 100], full key range
 PASS 200 random arrays, N in [0, 100], duplicate-heavy domain {0..3}
+PASS 1000 random arrays across D1-D5, N in [0, 100]
 PASS empty array stays empty
 [counted mode]
 PASS counted run sorts correctly
@@ -56,5 +57,5 @@ PASS D2 keeps the exact multiset of D1
 PASS D1 of size 1 is valid
 PASS D2 of size 1 is a copy
 
-SUMMARY passed=42 failed=0
+SUMMARY passed=43 failed=0
 RESULT ALL_TESTS_PASSED

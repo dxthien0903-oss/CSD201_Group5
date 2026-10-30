@@ -288,12 +288,13 @@ public final class MeasureRunner {
             se.delete();
         }
 
-        String elapsed = "", before = "", peak = "", check = "", ops = "", rd = "", wr = "";
+        String elapsed = "", before = "", peak = "", check = "", ops = "", rd = "", wr = "", depth = "";
         if (status == null) {
             if (res != null && res.length >= 9) {
                 status = res[1];
                 elapsed = res[2]; before = res[3]; peak = res[4]; check = res[5];
                 ops = res[6]; rd = res[7]; wr = res[8];
+                if (res.length >= 10) depth = res[9];
             } else if (err.contains("OutOfMemoryError")) {
                 status = "oom";
             } else {
@@ -311,7 +312,7 @@ public final class MeasureRunner {
 
         return String.join(",", runId, rq, algo, variant, ds, n, params.toString(), seed, sha,
                 DataGenerator.SPEC_GENERATOR_VERSION, rep, elapsed, before, peak, ops, check, status, xmx,
-                machine, commit, rd, wr, "",
+                machine, commit, rd, wr, depth,
                 k > 0 ? String.valueOf(k) : "", jdk, os, cores, ram, flags);
     }
 
@@ -535,7 +536,7 @@ public final class MeasureRunner {
         String[] badVariant = {"E2", "T", "radix", "noA", "D1", "1000", "0", "1", "1", "false"};
         report("E2 biến thể sai -> status crash",
                 executeOne(badVariant, app, "256m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("crash"), fails);
-        String[] badAlgo = {"E3", "T", "quick", "base", "D1", "1000", "0", "1", "1", "false"};
+        String[] badAlgo = {"E3", "T", "unknown", "base", "D1", "1000", "0", "1", "1", "false"};
         report("E3 thuật toán chưa tích hợp -> status crash",
                 executeOne(badAlgo, app, "256m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("crash"), fails);
         try {

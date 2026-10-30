@@ -28,9 +28,14 @@ public final class MeasureWorker {
 
     /** Bộ đếm của lượt --count (chỉ Radix có). */
     static final RadixSort.RadixMetrics RADIX_METRICS = new RadixSort.RadixMetrics();
+    static QuickSort.Stats quickStats;
 
     static Sorter pick(String algo, String variant, boolean count) {
         switch (algo) {
+            case "quick":
+            case "QuickSort":
+                requireVariant(algo, variant, "base", "hoare-med3");
+                return count ? a -> { quickStats = QuickSort.sortCounted(a); } : a -> QuickSort.sort(a);
             case "radix":
                 requireVariant(algo, variant, "base");
                 return count ? a -> RadixSort.sort(a, RADIX_METRICS) : a -> RadixSort.sort(a);
@@ -106,11 +111,12 @@ public final class MeasureWorker {
             for (int i = 0; i < a.length; i++) h = 31 * h + a[i];
 
             String ms = String.format(Locale.ROOT, "%.3f", (t1 - t0) / 1e6);
-            String ops = count ? String.valueOf(RADIX_METRICS.operations()) : "";
-            String rd = count ? String.valueOf(RADIX_METRICS.reads()) : "";
-            String wr = count ? String.valueOf(RADIX_METRICS.writes()) : "";
+            String ops = count ? (quickStats != null ? String.valueOf(quickStats.comparisons) : String.valueOf(RADIX_METRICS.operations())) : "";
+            String rd = (count && "radix".equals(algo)) ? String.valueOf(RADIX_METRICS.reads()) : "";
+            String wr = (count && "radix".equals(algo)) ? String.valueOf(RADIX_METRICS.writes()) : "";
+            String depth = (count && quickStats != null) ? String.valueOf(quickStats.maxDepth) : "";
             System.out.println("RESULT," + (ok ? "ok" : "wrong") + "," + ms + "," + before + ","
-                    + peak + "," + h + "," + ops + "," + rd + "," + wr);
+                    + peak + "," + h + "," + ops + "," + rd + "," + wr + (depth.isEmpty() ? "" : "," + depth));
         } catch (OutOfMemoryError e) {
             System.out.println("RESULT,oom,,,,,,,");
         } catch (StackOverflowError e) {

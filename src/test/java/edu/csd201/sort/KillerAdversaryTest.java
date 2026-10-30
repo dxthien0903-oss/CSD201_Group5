@@ -72,6 +72,78 @@ public final class KillerAdversaryTest {
         assertHillClimb(2048, 1500, 98765L);
     }
 
+    @Test
+    @DisplayName("Kiểm thử Musser/McIlroy Median-of-Three Killer trên QuickSort và PdqSort (N=10^4, 10^5, 10^6)")
+    public void testMusserMcIlroyKillerScaling() {
+        int[] smallKiller = generateMed3Killer(2_000);
+        int[] expectedSmall = smallKiller.clone();
+        Arrays.sort(expectedSmall);
+        int[] qsWork = smallKiller.clone();
+        QuickSort.Stats qsStats = QuickSort.sortCounted(qsWork);
+        assertArrayEquals(expectedSmall, qsWork, "QuickSort must still sort Musser/McIlroy killer array at N=2000");
+        assertTrue(qsStats.maxDepth >= 900, "Musser/McIlroy killer must force linear recursion depth >= N/2 (actual: " + qsStats.maxDepth + ")");
+        assertTrue(qsStats.comparisons >= 900_000L, "Musser/McIlroy killer must force quadratic comparisons (actual: " + qsStats.comparisons + ")");
+
+        int[] sizes = {10_000, 100_000, 1_000_000};
+        for (int n : sizes) {
+            int[] killer = generateMed3Killer(n);
+            int[] expected = killer.clone();
+            Arrays.sort(expected);
+
+            int[] pdqWork = killer.clone();
+            SortMetrics pdqMetrics = new SortMetrics();
+            PdqSort.sort(pdqWork, true, pdqMetrics);
+            assertArrayEquals(expected, pdqWork, "PdqSort must sort Musser/McIlroy killer at N=" + n);
+            assertTrue(pdqMetrics.heapFallbackCount() > 0, "PdqSort must trigger HeapSort fallback on Musser/McIlroy killer at N=" + n);
+
+            int[] quickWork = killer.clone();
+            String qsStatus = runQuickSortWithBoundedStack(quickWork, expected);
+            assertTrue("ok".equals(qsStatus) || "crash".equals(qsStatus), "QuickSort status recorded for N=" + n + ": " + qsStatus);
+        }
+    }
+
+    private static String runQuickSortWithBoundedStack(int[] work, int[] expected) {
+        final String[] status = {"crash"};
+        Thread t = new Thread(null, () -> {
+            try {
+                QuickSort.sort(work);
+                status[0] = Arrays.equals(expected, work) ? "ok" : "wrong";
+            } catch (StackOverflowError err) {
+                status[0] = "crash";
+            }
+        }, "qs-killer-runner", 256 * 1024L);
+        t.start();
+        try {
+            t.join(10_000L);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return status[0];
+    }
+
+    public static int[] generateMed3Killer(int n) {
+        int[] pos = new int[n];
+        for (int i = 0; i < n; i++) {
+            pos[i] = i;
+        }
+        int[] out = new int[n];
+        int val = 1;
+        int lo = 0;
+        while (n - lo >= 2) {
+            int mid = lo + ((n - lo) >>> 1);
+            out[pos[lo]] = val++;
+            out[pos[mid]] = val++;
+            int tmp = pos[lo + 1];
+            pos[lo + 1] = pos[mid];
+            pos[mid] = tmp;
+            lo += 2;
+        }
+        if (lo < n) {
+            out[pos[lo]] = val;
+        }
+        return out;
+    }
+
     private static void assertFamily(String label, int[] a) {
         int[] expected = a.clone();
         Arrays.sort(expected);
@@ -124,6 +196,7 @@ public final class KillerAdversaryTest {
 
         cliHillClimb(512, 4000, 12345L);
         cliHillClimb(2048, 1500, 98765L);
+        cliMusserMcIlroyScaling();
 
         System.out.println("KILLER_CASES=" + cases);
         System.out.println("KILLER_FAILURES=" + failures);
@@ -172,6 +245,38 @@ public final class KillerAdversaryTest {
         int bestDepth = runHillClimb(n, evaluations, seed);
         if (bestDepth > 200) {
             failures++;
+        }
+    }
+
+    private static void cliMusserMcIlroyScaling() {
+        int[] sizes = {10_000, 100_000, 1_000_000};
+        for (int n : sizes) {
+            int[] killer = generateMed3Killer(n);
+            int[] expected = killer.clone();
+            Arrays.sort(expected);
+
+            int[] pdqWork = killer.clone();
+            SortMetrics pdqMetrics = new SortMetrics();
+            long t0 = System.nanoTime();
+            PdqSort.sort(pdqWork, true, pdqMetrics);
+            double pdqMs = (System.nanoTime() - t0) / 1e6;
+            boolean pdqOk = Arrays.equals(expected, pdqWork);
+            if (!pdqOk) {
+                failures++;
+            }
+
+            int[] qsWork = killer.clone();
+            long qsStart = System.nanoTime();
+            String rawStatus = runQuickSortWithBoundedStack(qsWork, expected);
+            double qsMs = (System.nanoTime() - qsStart) / 1e6;
+            String qsStatus = "crash".equals(rawStatus) ? "crash (StackOverflowError)" : rawStatus;
+            if ("wrong".equals(rawStatus)) {
+                failures++;
+            }
+            cases++;
+            System.out.printf(java.util.Locale.ROOT,
+                    "MUSSER_KILLER n=%d QuickSort=[status=%s, time_ms=%.2f] PdqSort=[status=%s, time_ms=%.2f, maxDepth=%d, heapFallbacks=%d]%n",
+                    n, qsStatus, qsMs, pdqOk ? "ok" : "wrong", pdqMs, pdqMetrics.maxDepth(), pdqMetrics.heapFallbackCount());
         }
     }
 

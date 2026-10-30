@@ -69,7 +69,7 @@ public final class Benchmark {
     // -------------------------------------------------------------------------
 
     /** Các thuật toán chạy trong rq1/rq2 (tên khớp nhánh trong runOne và verifyQuick). */
-    static final String[] ALGOS = {"MergeSort", "RadixSort"};
+    static final String[] ALGOS = {"QuickSort", "MergeSort", "RadixSort"};
 
     private static final int    DEFAULT_WARMUP   = 2;
     private static final int    DEFAULT_RUNS     = 5;
@@ -204,6 +204,13 @@ public final class Benchmark {
         int[] actual   = input.clone();
         Arrays.sort(expected);
         MergeSort.sort(actual);
+        int[] quick = input.clone();
+        QuickSort.sort(quick);
+        if (!Arrays.equals(expected, quick)) {
+            log.append("FAIL,").append(label).append(",quick\n");
+            System.err.println("  FAIL (quick): " + label);
+            return 1;
+        }
         if (!Arrays.equals(expected, actual)) {
             log.append("FAIL,").append(label).append('\n');
             System.err.println("  FAIL: " + label);
@@ -403,7 +410,20 @@ public final class Benchmark {
                                 long[] timeNsOut, long[] metricsOut) {
         int[] data = generateData(dist, size, rng, k);
 
-        if ("MergeSort".equals(algo)) {
+        if ("QuickSort".equals(algo)) {
+            int[] forCount = (metricsOut != null) ? data.clone() : null;
+            long t0 = System.nanoTime();
+            QuickSort.sort(data);
+            long t1 = System.nanoTime();
+            if (timeNsOut  != null) timeNsOut[0]  = t1 - t0;
+            if (metricsOut != null) {
+                QuickSort.Stats stats = QuickSort.sortCounted(forCount);
+                metricsOut[0] = stats.comparisons;
+                metricsOut[1] = 0L;
+                metricsOut[2] = 0L;
+                metricsOut[3] = stats.maxDepth;
+            }
+        } else if ("MergeSort".equals(algo)) {
             // Clone TRƯỚC khi sort để lượt sortCounted chạy trên dữ liệu gốc (đúng distribution)
             int[] forCount = (metricsOut != null) ? data.clone() : null;
             MergeSort.MergeMetrics m = new MergeSort.MergeMetrics();
@@ -526,7 +546,9 @@ public final class Benchmark {
             int[] expected = input.clone();
             int[] actual   = input.clone();
             Arrays.sort(expected);
-            if ("MergeSort".equals(algo)) {
+            if ("QuickSort".equals(algo)) {
+                QuickSort.sort(actual);
+            } else if ("MergeSort".equals(algo)) {
                 MergeSort.sort(actual);
             } else if ("RadixSort".equals(algo)) {
                 RadixSort.sort(actual);
