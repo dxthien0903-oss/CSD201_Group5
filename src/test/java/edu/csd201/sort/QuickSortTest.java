@@ -13,15 +13,7 @@ import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * TV1 correctness suite: fixed cases, large edge cases, randomized comparison against
- * Arrays.sort, counted-mode checks, sub-segment contract, exhaustive permutations,
- * and D1/D2 generator rules.
- *
- * Supports both JUnit 5 test runner (mvn test) and standalone CLI execution:
- *   mvn test -Dtest=QuickSortTest
- *   java -cp "target/classes;target/test-classes" edu.csd201.sort.QuickSortTest [--log=results/quick_sort_test_log.txt]
- */
+
 public final class QuickSortTest {
 
     private static final int LARGE_N = 100_000;
