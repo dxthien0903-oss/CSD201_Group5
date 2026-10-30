@@ -72,37 +72,58 @@ public final class BenchmarkDispatchTest {
     }
 
     @Test
-    public void timedTrialsSortFreshClonesAndPreserveBaseline() {
+    public void timingAndMetricsTrialsUseFreshClonesAndPreserveBaseline() {
         int[] baseline = {4, -2, 4, 0, -9};
         int[] original = baseline.clone();
-        List<int[]> trialInputs = new ArrayList<>();
+        List<int[]> timingInputs = new ArrayList<>();
+        List<int[]> metricsInputs = new ArrayList<>();
+        HeapSort.HeapMetrics metrics = new HeapSort.HeapMetrics();
 
         for (int trial = 0; trial < 3; trial++) {
             Benchmark.TimedSortResult result = Benchmark.runSortTrial(values -> {
-                trialInputs.add(values);
+                timingInputs.add(values);
                 Arrays.sort(values);
             }, baseline);
+            int[] metricsValues = Benchmark.runMetricsTrial(values -> {
+                metricsInputs.add(values);
+                HeapSort.sort(values, metrics);
+            }, baseline);
 
-            assertSame(trialInputs.get(trial), result.values());
+            assertSame(timingInputs.get(trial), result.values());
+            assertSame(metricsInputs.get(trial), metricsValues);
             assertNotSame(baseline, result.values());
             assertArrayEquals(new int[] {-9, -2, 0, 4, 4}, result.values());
+            assertNotSame(baseline, metricsValues);
+            assertNotSame(result.values(), metricsValues);
+            assertArrayEquals(new int[] {-9, -2, 0, 4, 4}, metricsValues);
             assertArrayEquals(original, baseline);
         }
 
-        for (int first = 0; first < trialInputs.size(); first++) {
-            for (int second = first + 1; second < trialInputs.size(); second++) {
-                assertNotSame(trialInputs.get(first), trialInputs.get(second));
+        for (int first = 0; first < timingInputs.size(); first++) {
+            for (int second = first + 1; second < timingInputs.size(); second++) {
+                assertNotSame(timingInputs.get(first), timingInputs.get(second));
+                assertNotSame(metricsInputs.get(first), metricsInputs.get(second));
             }
         }
     }
 
     @Test
-    public void timedTrialsRejectIncorrectSorterOutput() {
+    public void validationRejectsIncorrectTimingAndMetricsOutputs() {
         int[] baseline = {2, 1};
+        int[] expected = Benchmark.expectedOutput(baseline);
+        int[] timedOutput = Benchmark.runSortTrial(values -> values[0] = 2, baseline).values();
 
         try {
-            Benchmark.runSortTrial(values -> values[0] = 2, baseline);
-            fail("incorrect sorter output must be rejected");
+            Benchmark.validateSortResult(expected, timedOutput);
+            fail("incorrect timing output must be rejected");
+        } catch (IllegalStateException exception) {
+            assertEquals("Sorter output does not match Arrays.sort", exception.getMessage());
+        }
+
+        int[] metricsOutput = Benchmark.runMetricsTrial(values -> values[0] = 2, baseline);
+        try {
+            Benchmark.validateSortResult(expected, metricsOutput);
+            fail("incorrect metrics output must be rejected");
         } catch (IllegalStateException exception) {
             assertEquals("Sorter output does not match Arrays.sort", exception.getMessage());
         }
@@ -131,7 +152,7 @@ public final class BenchmarkDispatchTest {
     }
 
     @Test
-    public void runOneAcceptsNullMetricsOutput() {
+    public void runOneAcceptsNullMetricsOutputWithoutChangingInputBehavior() {
         for (String algorithm : new String[] {"MergeSort", "HeapSort", "PdqSort"}) {
             long[] elapsedNanos = {-1L};
 
@@ -140,6 +161,58 @@ public final class BenchmarkDispatchTest {
 
             assertTrue(algorithm + " elapsed time", elapsedNanos[0] >= 0);
         }
+    }
+
+    @Test
+    public void runOneSortsPdqD2WithoutMetrics() {
+        long[] elapsedNanos = {-1L};
+
+        Benchmark.runOne("PdqSort", "D2", 100, new java.util.Random(12345L), -1,
+                elapsedNanos, null);
+
+        assertTrue("PdqSort D2 elapsed time", elapsedNanos[0] >= 0);
+    }
+
+    @Test
+    public void runOneSortsPdqD2WithMetrics() {
+        long[] elapsedNanos = {-1L};
+        long[] metrics = new long[4];
+
+        Benchmark.runOne("PdqSort", "D2", 100, new java.util.Random(12345L), -1,
+                elapsedNanos, metrics);
+
+        assertTrue("PdqSort D2 elapsed time", elapsedNanos[0] >= 0);
+        assertArrayEquals(new long[] {-1, -1, 0, 1}, metrics);
+    }
+
+    @Test
+    public void uninstrumentedMergeSortAndPdqSortProduceSortedOutput() {
+        int[] input = {9, -1, 4, 4, Integer.MIN_VALUE, 0, Integer.MAX_VALUE};
+        int[] expected = {Integer.MIN_VALUE, -1, 0, 4, 4, 9, Integer.MAX_VALUE};
+
+        int[] mergeValues = input.clone();
+        MergeSort.sort(mergeValues);
+        assertArrayEquals(expected, mergeValues);
+
+        int[] pdqValues = input.clone();
+        PdqSort.sort(pdqValues);
+        assertArrayEquals(expected, pdqValues);
+
+        int[] noMechanismAValues = input.clone();
+        PdqSort.sortWithoutMechanismA(noMechanismAValues);
+        assertArrayEquals(expected, noMechanismAValues);
+    }
+
+    @Test
+    public void knownMergeSortMetricsMatchIndependentExpectedCounts() {
+        int[] values = {4, 1, 3, 2};
+        MergeSort.MergeMetrics metrics = new MergeSort.MergeMetrics();
+
+        MergeSort.sort(values, metrics);
+
+        assertEquals(5, metrics.comparisons());
+        assertEquals(16, metrics.assignments());
+        assertEquals(16, metrics.extraMemoryBytes());
     }
 
     @Test

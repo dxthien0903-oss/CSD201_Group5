@@ -65,18 +65,25 @@ public final class MergeSort {
     public static void sort(int[] arr, MergeMetrics metrics) {
         Objects.requireNonNull(arr,     "arr");
         Objects.requireNonNull(metrics, "metrics");
+        sortInternal(arr, metrics);
+    }
+
+    private static void sortInternal(int[] arr, MergeMetrics metrics) {
         if (arr.length < 2) {
             return; // 0 hoặc 1 phần tử: đã sắp xếp
         }
         int[] temp = new int[arr.length];
         // Bộ nhớ phụ: mảng temp kiểu int (4 byte/phần tử)
-        metrics.setExtraMemory((long) arr.length * Integer.BYTES);
+        if (metrics != null) {
+            metrics.setExtraMemory((long) arr.length * Integer.BYTES);
+        }
         mergeSort(arr, temp, 0, arr.length - 1, metrics);
     }
 
     /** Tiện lợi – không cần truyền metrics. */
     public static void sort(int[] arr) {
-        sort(arr, new MergeMetrics());
+        Objects.requireNonNull(arr, "arr");
+        sortInternal(arr, null);
     }
 
     /**
@@ -130,7 +137,9 @@ public final class MergeSort {
         // Bước 1 – Sao chép đoạn [left..right] sang temp
         for (int k = left; k <= right; k++) {
             temp[k] = arr[k];
-            m.addAssignment();
+            if (m != null) {
+                m.addAssignment();
+            }
         }
 
         int i = left;       // con trỏ nửa trái (trong temp)
@@ -139,25 +148,33 @@ public final class MergeSort {
 
         // Bước 2 – Trộn
         while (i <= mid && j <= right) {
-            m.addComparison();              // so sánh temp[i] vs temp[j]
+            if (m != null) {
+                m.addComparison();              // so sánh temp[i] vs temp[j]
+            }
             if (temp[i] <= temp[j]) {
                 arr[k++] = temp[i++];
             } else {
                 arr[k++] = temp[j++];
             }
-            m.addAssignment();              // ghi kết quả vào arr
+            if (m != null) {
+                m.addAssignment();              // ghi kết quả vào arr
+            }
         }
 
         // Bước 3 – Copy phần còn lại của nửa trái
         while (i <= mid) {
             arr[k++] = temp[i++];
-            m.addAssignment();
+            if (m != null) {
+                m.addAssignment();
+            }
         }
 
         // Bước 4 – Copy phần còn lại của nửa phải
         while (j <= right) {
             arr[k++] = temp[j++];
-            m.addAssignment();
+            if (m != null) {
+                m.addAssignment();
+            }
         }
     }
 }

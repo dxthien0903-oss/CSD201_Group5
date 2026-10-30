@@ -11,16 +11,22 @@ public final class PdqSort {
     }
 
     public static void sort(int[] values) {
-        sort(values, true, new SortMetrics());
+        Objects.requireNonNull(values, "values");
+        sortInternal(values, true, null);
     }
 
     public static void sortWithoutMechanismA(int[] values) {
-        sort(values, false, new SortMetrics());
+        Objects.requireNonNull(values, "values");
+        sortInternal(values, false, null);
     }
 
     public static void sort(int[] values, boolean mechanismAEnabled, SortMetrics metrics) {
         Objects.requireNonNull(values, "values");
         Objects.requireNonNull(metrics, "metrics");
+        sortInternal(values, mechanismAEnabled, metrics);
+    }
+
+    private static void sortInternal(int[] values, boolean mechanismAEnabled, SortMetrics metrics) {
         if (values.length < 2) {
             return;
         }
@@ -39,13 +45,17 @@ public final class PdqSort {
             boolean breakPatternsBeforePartition,
             boolean mechanismAEnabled,
             SortMetrics metrics) {
-        metrics.recordDepth(depth);
+        if (metrics != null) {
+            metrics.recordDepth(depth);
+        }
         boolean breakPatternsOnNextPartition = breakPatternsBeforePartition;
 
         while (high - low >= INSERTION_SORT_THRESHOLD) {
             if (badPartitionBudget == 0) {
                 HeapSort.sortSubsegment(values, low, high);
-                metrics.recordHeapFallback();
+                if (metrics != null) {
+                    metrics.recordHeapFallback();
+                }
                 return;
             }
 
@@ -55,7 +65,9 @@ public final class PdqSort {
             }
             int pivot = choosePivot(values, low, high);
             Partition partition = partitionThreeWay(values, low, high, pivot);
-            metrics.recordPartition();
+            if (metrics != null) {
+                metrics.recordPartition();
+            }
 
             int leftSize = partition.equalStart - low;
             int rightSize = high - partition.equalEnd;
@@ -69,7 +81,9 @@ public final class PdqSort {
             if (mechanismAEnabled && balanced && partition.alreadyPartitioned) {
                 if (partialInsertionSort(values, low, partition.equalStart)
                         && partialInsertionSort(values, partition.equalEnd, high)) {
-                    metrics.recordPartialInsertion();
+                    if (metrics != null) {
+                        metrics.recordPartialInsertion();
+                    }
                     return;
                 }
             }

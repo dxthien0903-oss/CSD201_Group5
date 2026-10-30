@@ -74,12 +74,25 @@ public final class Benchmark {
         sorter.sort(values);
         long elapsed = System.nanoTime() - start;
 
+        return new TimedSortResult(values, elapsed);
+    }
+
+    static int[] runMetricsTrial(IntSorter sorter, int[] baseline) {
+        int[] values = baseline.clone();
+        sorter.sort(values);
+        return values;
+    }
+
+    static int[] expectedOutput(int[] baseline) {
         int[] expected = baseline.clone();
         Arrays.sort(expected);
-        if (!Arrays.equals(expected, values)) {
+        return expected;
+    }
+
+    static void validateSortResult(int[] expected, int[] actual) {
+        if (!Arrays.equals(expected, actual)) {
             throw new IllegalStateException("Sorter output does not match Arrays.sort");
         }
-        return new TimedSortResult(values, elapsed);
     }
 
     static final class MetricsSummary {
@@ -467,7 +480,6 @@ public final class Benchmark {
                        long[] timeNsOut, long[] metricsOut) {
         SortAlgorithm algorithm = SortAlgorithm.fromName(algo);
         int[] baseline = generateData(dist, size, rng, k);
-        int[] metricsInput = metricsOut == null ? null : baseline.clone();
 
         IntSorter sorter = switch (algorithm) {
             case MERGE_SORT -> sorterFor("MergeSort");
@@ -475,35 +487,43 @@ public final class Benchmark {
             case PDQ_SORT -> PdqSort::sort;
         };
         TimedSortResult result = runSortTrial(sorter, baseline);
+        int[] expected = expectedOutput(baseline);
+        validateSortResult(expected, result.values());
         if (timeNsOut != null) timeNsOut[0] = result.elapsedNanos();
 
         if (metricsOut != null) {
-            switch (algorithm) {
+            long[] measuredMetrics = new long[4];
+            int[] metricsInput = switch (algorithm) {
                 case MERGE_SORT -> {
                     MergeSort.MergeMetrics metrics = new MergeSort.MergeMetrics();
-                    MergeSort.sort(metricsInput, metrics);
-                    metricsOut[0] = metrics.comparisons();
-                    metricsOut[1] = metrics.assignments();
-                    metricsOut[2] = metrics.extraMemoryBytes();
-                    metricsOut[3] = -1;
+                    int[] sorted = runMetricsTrial(values -> MergeSort.sort(values, metrics), baseline);
+                    measuredMetrics[0] = metrics.comparisons();
+                    measuredMetrics[1] = metrics.assignments();
+                    measuredMetrics[2] = metrics.extraMemoryBytes();
+                    measuredMetrics[3] = -1;
+                    yield sorted;
                 }
                 case HEAP_SORT -> {
                     HeapSort.HeapMetrics metrics = new HeapSort.HeapMetrics();
-                    HeapSort.sort(metricsInput, metrics);
-                    metricsOut[0] = metrics.comparisons();
-                    metricsOut[1] = metrics.assignments();
-                    metricsOut[2] = 0L;
-                    metricsOut[3] = -1;
+                    int[] sorted = runMetricsTrial(values -> HeapSort.sort(values, metrics), baseline);
+                    measuredMetrics[0] = metrics.comparisons();
+                    measuredMetrics[1] = metrics.assignments();
+                    measuredMetrics[2] = 0L;
+                    measuredMetrics[3] = -1;
+                    yield sorted;
                 }
                 case PDQ_SORT -> {
                     SortMetrics metrics = new SortMetrics();
-                    PdqSort.sort(metricsInput, true, metrics);
-                    metricsOut[0] = -1L;
-                    metricsOut[1] = -1L;
-                    metricsOut[2] = 0L;
-                    metricsOut[3] = metrics.maxDepth();
+                    int[] sorted = runMetricsTrial(values -> PdqSort.sort(values, true, metrics), baseline);
+                    measuredMetrics[0] = -1L;
+                    measuredMetrics[1] = -1L;
+                    measuredMetrics[2] = 0L;
+                    measuredMetrics[3] = metrics.maxDepth();
+                    yield sorted;
                 }
-            }
+            };
+            validateSortResult(expected, metricsInput);
+            System.arraycopy(measuredMetrics, 0, metricsOut, 0, measuredMetrics.length);
         }
     }
 
