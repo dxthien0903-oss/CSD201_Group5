@@ -10,6 +10,8 @@ import java.util.Random;
 
 /**
  * Benchmark so sánh MergeSort với PdqSort trên 5 phân phối D1–D5.
+ * Các chế độ rq1/rq2 chạy các thuật toán trong {@link #ALGOS} (hiện có MergeSort và RadixSort);
+ * thêm thuật toán khác bằng cách thêm tên vào ALGOS và một nhánh trong runOne/verifyQuick.
  *
  * <h2>Chế độ chạy</h2>
  * <ul>
@@ -65,6 +67,9 @@ public final class Benchmark {
     // -------------------------------------------------------------------------
     // Cấu hình chung
     // -------------------------------------------------------------------------
+
+    /** Các thuật toán chạy trong rq1/rq2 (tên khớp nhánh trong runOne và verifyQuick). */
+    static final String[] ALGOS = {"MergeSort", "RadixSort"};
 
     private static final int    DEFAULT_WARMUP   = 2;
     private static final int    DEFAULT_RUNS     = 5;
@@ -204,6 +209,13 @@ public final class Benchmark {
             System.err.println("  FAIL: " + label);
             return 1;
         }
+        int[] radix = input.clone();
+        RadixSort.sort(radix);
+        if (!Arrays.equals(expected, radix)) {
+            log.append("FAIL,").append(label).append(",radix\n");
+            System.err.println("  FAIL (radix): " + label);
+            return 1;
+        }
         log.append("PASS,").append(label).append('\n');
         return 0;
     }
@@ -231,8 +243,8 @@ public final class Benchmark {
             }
             int n = (int) size;
 
-            // Chỉ chạy MergeSort cho RQ1
-            sb.append(runDistribution("MergeSort", "D1", n, warmup, runs, DEFAULT_SEED, -1));
+            // Chạy mọi thuật toán trong ALGOS cho RQ1
+            runAll(sb, "D1", n, warmup, runs, DEFAULT_SEED, -1);
             System.out.println();
         }
         return sb.toString();
@@ -263,32 +275,40 @@ public final class Benchmark {
 
             // D1 – 3 seed
             for (long seed : RQ2_SEEDS) {
-                sb.append(runDistribution("MergeSort", "D1", n, warmup, runs, seed, -1));
+                runAll(sb, "D1", n, warmup, runs, seed, -1);
             }
 
             // D2 – 1 seed (deterministic, seed không ảnh hưởng)
-            sb.append(runDistribution("MergeSort", "D2", n, warmup, runs, DEFAULT_SEED, -1));
+            runAll(sb, "D2", n, warmup, runs, DEFAULT_SEED, -1);
 
             // D3 – 3 seed
             for (long seed : RQ2_SEEDS) {
-                sb.append(runDistribution("MergeSort", "D3", n, warmup, runs, seed, -1));
+                runAll(sb, "D3", n, warmup, runs, seed, -1);
             }
 
             // D4 – 3 seed
             for (long seed : RQ2_SEEDS) {
-                sb.append(runDistribution("MergeSort", "D4", n, warmup, runs, seed, -1));
+                runAll(sb, "D4", n, warmup, runs, seed, -1);
             }
 
             // D5 – 3 K-values × 3 seed
             for (int k : D5_K_VALUES) {
                 for (long seed : RQ2_SEEDS) {
-                    sb.append(runDistribution("MergeSort", "D5_K" + k, n, warmup, runs, seed, k));
+                    runAll(sb, "D5_K" + k, n, warmup, runs, seed, k);
                 }
             }
 
             System.out.println();
         }
         return sb.toString();
+    }
+
+    /** Chạy cùng một cấu hình (dist, size, seed, k) cho mọi thuật toán trong {@link #ALGOS}. */
+    private static void runAll(StringBuilder sb, String dist, int size, int warmup, int runs,
+                               long seed, int k) {
+        for (String algo : ALGOS) {
+            sb.append(runDistribution(algo, dist, size, warmup, runs, seed, k));
+        }
     }
 
     // =========================================================================
@@ -395,6 +415,21 @@ public final class Benchmark {
                 metricsOut[2] = m.extraMemoryBytes();
                 metricsOut[3] = -1; // MergeSort không có max_depth riêng
             }
+        } else if ("RadixSort".equals(algo)) {
+            // Đo thời gian bằng bản KHÔNG đếm; số thao tác lấy từ một lượt đếm riêng, ngoài vùng đo.
+            int[] forCount = (metricsOut != null) ? data.clone() : null;
+            long t0 = System.nanoTime();
+            RadixSort.sort(data);
+            long t1 = System.nanoTime();
+            if (timeNsOut  != null) timeNsOut[0]  = t1 - t0;
+            if (metricsOut != null) {
+                RadixSort.RadixMetrics m = new RadixSort.RadixMetrics();
+                RadixSort.sort(forCount, m);
+                metricsOut[0] = 0L;                    // Radix không so sánh các khóa
+                metricsOut[1] = m.writes();            // số lần ghi mảng khóa (4N); số lần đọc = 2 × ghi
+                metricsOut[2] = m.extraMemoryBytes();  // mảng phụ N phần tử (4N byte)
+                metricsOut[3] = -1;                    // không đệ quy
+            }
         } else { // PdqSort
             SortMetrics m = new SortMetrics();
             long t0 = System.nanoTime();
@@ -438,6 +473,8 @@ public final class Benchmark {
             Arrays.sort(expected);
             if ("MergeSort".equals(algo)) {
                 MergeSort.sort(actual);
+            } else if ("RadixSort".equals(algo)) {
+                RadixSort.sort(actual);
             } else {
                 PdqSort.sort(actual, true, new SortMetrics());
             }
