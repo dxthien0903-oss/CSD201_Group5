@@ -65,6 +65,23 @@ public final class Benchmark {
         };
     }
 
+    record TimedSortResult(int[] values, long elapsedNanos) {
+    }
+
+    static TimedSortResult runSortTrial(IntSorter sorter, int[] baseline) {
+        int[] values = baseline.clone();
+        long start = System.nanoTime();
+        sorter.sort(values);
+        long elapsed = System.nanoTime() - start;
+
+        int[] expected = baseline.clone();
+        Arrays.sort(expected);
+        if (!Arrays.equals(expected, values)) {
+            throw new IllegalStateException("Sorter output does not match Arrays.sort");
+        }
+        return new TimedSortResult(values, elapsed);
+    }
+
     static final class MetricsSummary {
         private long comparisonTotal;
         private long assignmentTotal;
@@ -445,33 +462,32 @@ public final class Benchmark {
      * @param timeNsOut  nếu != null, ghi ns vào [0]
      * @param metricsOut nếu != null, ghi [comparisons, assignments, extraMemBytes, max_depth]
      */
-    private static void runOne(String algo, String dist, int size,
-                               Random rng, int k,
-                               long[] timeNsOut, long[] metricsOut) {
+    static void runOne(String algo, String dist, int size,
+                       Random rng, int k,
+                       long[] timeNsOut, long[] metricsOut) {
         SortAlgorithm algorithm = SortAlgorithm.fromName(algo);
-        int[] data = generateData(dist, size, rng, k);
+        int[] baseline = generateData(dist, size, rng, k);
+        int[] metricsInput = metricsOut == null ? null : baseline.clone();
 
-        switch (algorithm) {
-            case MERGE_SORT -> {
-                MergeSort.MergeMetrics metrics = new MergeSort.MergeMetrics();
-                long t0 = System.nanoTime();
-                MergeSort.sort(data, metrics);
-                long t1 = System.nanoTime();
-                if (timeNsOut != null) timeNsOut[0] = t1 - t0;
-                if (metricsOut != null) {
+        IntSorter sorter = switch (algorithm) {
+            case MERGE_SORT -> sorterFor("MergeSort");
+            case HEAP_SORT -> sorterFor("HeapSort");
+            case PDQ_SORT -> PdqSort::sort;
+        };
+        TimedSortResult result = runSortTrial(sorter, baseline);
+        if (timeNsOut != null) timeNsOut[0] = result.elapsedNanos();
+
+        if (metricsOut != null) {
+            switch (algorithm) {
+                case MERGE_SORT -> {
+                    MergeSort.MergeMetrics metrics = new MergeSort.MergeMetrics();
+                    MergeSort.sort(metricsInput, metrics);
                     metricsOut[0] = metrics.comparisons();
                     metricsOut[1] = metrics.assignments();
                     metricsOut[2] = metrics.extraMemoryBytes();
                     metricsOut[3] = -1;
                 }
-            }
-            case HEAP_SORT -> {
-                int[] metricsInput = metricsOut == null ? null : data.clone();
-                long t0 = System.nanoTime();
-                HeapSort.sort(data);
-                long t1 = System.nanoTime();
-                if (timeNsOut != null) timeNsOut[0] = t1 - t0;
-                if (metricsOut != null) {
+                case HEAP_SORT -> {
                     HeapSort.HeapMetrics metrics = new HeapSort.HeapMetrics();
                     HeapSort.sort(metricsInput, metrics);
                     metricsOut[0] = metrics.comparisons();
@@ -479,14 +495,9 @@ public final class Benchmark {
                     metricsOut[2] = 0L;
                     metricsOut[3] = -1;
                 }
-            }
-            case PDQ_SORT -> {
-                SortMetrics metrics = new SortMetrics();
-                long t0 = System.nanoTime();
-                PdqSort.sort(data, true, metrics);
-                long t1 = System.nanoTime();
-                if (timeNsOut != null) timeNsOut[0] = t1 - t0;
-                if (metricsOut != null) {
+                case PDQ_SORT -> {
+                    SortMetrics metrics = new SortMetrics();
+                    PdqSort.sort(metricsInput, true, metrics);
                     metricsOut[0] = -1L;
                     metricsOut[1] = -1L;
                     metricsOut[2] = 0L;
