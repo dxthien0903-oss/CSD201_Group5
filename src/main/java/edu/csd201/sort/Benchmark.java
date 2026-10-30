@@ -404,16 +404,21 @@ public final class Benchmark {
         int[] data = generateData(dist, size, rng, k);
 
         if ("MergeSort".equals(algo)) {
+            // Clone TRƯỚC khi sort để lượt sortCounted chạy trên dữ liệu gốc (đúng distribution)
+            int[] forCount = (metricsOut != null) ? data.clone() : null;
             MergeSort.MergeMetrics m = new MergeSort.MergeMetrics();
             long t0 = System.nanoTime();
             MergeSort.sort(data, m);
             long t1 = System.nanoTime();
             if (timeNsOut  != null) timeNsOut[0]  = t1 - t0;
             if (metricsOut != null) {
-                metricsOut[0] = m.comparisons();
-                metricsOut[1] = m.assignments();
-                metricsOut[2] = m.extraMemoryBytes();
-                metricsOut[3] = -1; // MergeSort không có max_depth riêng
+                // Lượt đếm riêng (ngoài vùng đo thời gian) – chạy trên bản sao chưa sort
+                MergeSort.MergeMetrics counted = new MergeSort.MergeMetrics();
+                MergeSort.sortCounted(forCount, counted);
+                metricsOut[0] = counted.comparisons();
+                metricsOut[1] = counted.assignments();
+                metricsOut[2] = m.extraMemoryBytes();   // bộ nhớ phụ lấy từ lượt timing (đã cấp phát N*4 B)
+                metricsOut[3] = counted.maxDepth();     // chiều sâu đệ quy thực
             }
         } else if ("RadixSort".equals(algo)) {
             // Đo thời gian bằng bản KHÔNG đếm; số thao tác lấy từ một lượt đếm riêng, ngoài vùng đo.
@@ -446,16 +451,66 @@ public final class Benchmark {
     }
 
     /**
-     * Tạo mảng dữ liệu. Nếu dist bắt đầu bằng "D5" và k >= 1,
-     * dùng {@link DataGenerator#generateManyDuplicatesK(int, int, Random)}.
+     * Tạo mảng dữ liệu đúng đặc tả, nhất quán với {@link DataGenerator#generateSpec}.
+     *
+     * <ul>
+     *   <li>D1: N giá trị ngẫu nhiên không âm từ {@code rng}</li>
+     *   <li>D2: clone của D1 sắp tăng dần</li>
+     *   <li>D3: D2 sau đó hoán đổi N/1000 cặp vị trí khác nhau (seed phụ = nextLong)</li>
+     *   <li>D4: D2 đảo ngược</li>
+     *   <li>D5: {@link DataGenerator#generateManyDuplicatesK} với K tuỳ chỉnh, hoặc √n nếu k &lt; 1</li>
+     * </ul>
+     *
+     * <p>D3 và D4 đều dùng D2 thực (giá trị ngẫu nhiên đã sắp xếp), không phải dãy 0,1,...,n-1.
      */
     private static int[] generateData(String dist, int size, Random rng, int k) {
-        if (dist.startsWith("D5") && k >= 1) {
-            return DataGenerator.generateManyDuplicatesK(size, k, rng);
+        if (dist.startsWith("D5")) {
+            int kk = (k >= 1) ? k : Math.max(1, (int) Math.sqrt(size));
+            return DataGenerator.generateManyDuplicatesK(size, kk, rng);
         }
-        // D5 không có K → dùng dist gốc "D5"
-        String baseDist = dist.startsWith("D5") ? "D5" : dist;
-        return DataGenerator.generate(baseDist, size, rng);
+        switch (dist) {
+            case "D1": {
+                int[] a = new int[size];
+                for (int i = 0; i < size; i++) a[i] = rng.nextInt() & 0x7FFFFFFF;
+                return a;
+            }
+            case "D2": {
+                int[] a = new int[size];
+                for (int i = 0; i < size; i++) a[i] = rng.nextInt() & 0x7FFFFFFF;
+                java.util.Arrays.sort(a);
+                return a;
+            }
+            case "D3": {
+                // D2 thực (ngẫu nhiên, đã sort) + N/1000 hoán đổi cặp khác nhau
+                int[] a = new int[size];
+                for (int i = 0; i < size; i++) a[i] = rng.nextInt() & 0x7FFFFFFF;
+                java.util.Arrays.sort(a);
+                if (size >= 2) {
+                    long swapSeed = rng.nextLong(); // seed phụ tách biệt với D1 seed
+                    Random sr = new Random(swapSeed);
+                    int swaps = size / 1000;
+                    for (int s = 0; s < swaps; s++) {
+                        int i = sr.nextInt(size);
+                        int j = sr.nextInt(size - 1);
+                        if (j >= i) j++;            // đảm bảo i != j
+                        int t = a[i]; a[i] = a[j]; a[j] = t;
+                    }
+                }
+                return a;
+            }
+            case "D4": {
+                // D2 thực (ngẫu nhiên, đã sort) đảo ngược
+                int[] a = new int[size];
+                for (int i = 0; i < size; i++) a[i] = rng.nextInt() & 0x7FFFFFFF;
+                java.util.Arrays.sort(a);
+                for (int lo = 0, hi = size - 1; lo < hi; lo++, hi--) {
+                    int t = a[lo]; a[lo] = a[hi]; a[hi] = t;
+                }
+                return a;
+            }
+            default:
+                return DataGenerator.generate(dist, size, rng);
+        }
     }
 
     /**
