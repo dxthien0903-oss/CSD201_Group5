@@ -21,12 +21,19 @@ import java.util.Random;
  *   <li>D3: swaps = N/1000 theo đặc tả – D2 + hoán đổi N/1.000 cặp ngẫu nhiên</li>
  *   <li>D4: D2 đảo ngược (giảm dần) theo đặc tả đề bài</li>
  *   <li>D5: thêm {@link #generateManyDuplicatesK} hỗ trợ K tuỳ chỉnh cho RQ2</li>
+ *   <li>TV4: D5 sinh K giá trị phân biệt (miền 0 .. 2^31-1) từ nguồn ngẫu nhiên rồi chọn đều trong K giá trị đó,
+ *       đúng đề; thêm {@link #generateSpec} (D1-D5 đúng đề, tái lập theo seed) cho bộ đo chạy từng JVM riêng</li>
  * </ul>
+ *
+ * <p>{@link #generate} (D1-D4 đã sửa đúng đề) dùng cho Benchmark; {@link #generateSpec} dùng cho MeasureRunner (seed riêng từng lượt).
  */
 public final class DataGenerator {
 
     /** Nhãn tất cả phân phối theo thứ tự. */
     public static final String[] DISTRIBUTIONS = {"D1", "D2", "D3", "D4", "D5"};
+
+    /** Phiên bản của {@link #generateSpec}; ghi vào cột generator_version của CSV đo. */
+    public static final String SPEC_GENERATOR_VERSION = "gen-1.2";
 
     private DataGenerator() {
     }
@@ -171,23 +178,96 @@ public final class DataGenerator {
     }
 
     /**
-     * D5 với K tuỳ chỉnh: mảng ngẫu nhiên trong phạm vi [0, K).
+     * D5 với K tuỳ chỉnh (đúng đề): sinh trước K giá trị PHÂN BIỆT trong [0, 2^31 - 1] từ {@code random},
+     * sau đó mỗi phần tử chọn đều ngẫu nhiên trong K giá trị đó.
      *
-     * <p>Dùng cho RQ2 với K = 1.000, K = 10, K = 2.
-     * K = 2 tương đương mảng chỉ gồm 0 và 1 (căng thẳng nhất).
+     * <p>Dùng cho RQ2 với K = 1.000, K = 10, K = 2. K = 1 cho mảng toàn bằng nhau.
+     * Cùng trạng thái của {@code random} cho cùng mảng (tái lập theo seed). Nếu K &gt; size thì không đủ
+     * K giá trị xuất hiện, vẫn hợp lệ.
      *
      * @param size   số phần tử
-     * @param k      số giá trị phân biệt (phạm vi [0, k))
+     * @param k      số giá trị phân biệt (k &gt;= 1)
      * @param random nguồn ngẫu nhiên
      * @return mảng mới kích thước {@code size}
      */
     public static int[] generateManyDuplicatesK(int size, int k, Random random) {
         if (k < 1) throw new IllegalArgumentException("k must be >= 1, got: " + k);
+        int[] values = new int[k];
+        java.util.HashSet<Integer> used = new java.util.HashSet<>(); // chỉ để loại trùng khi sinh K giá trị
+        for (int i = 0; i < k; ) {
+            int v = random.nextInt() & Integer.MAX_VALUE; // miền 0 .. 2^31 - 1
+            if (used.add(v)) values[i++] = v;
+        }
         int[] arr = new int[size];
         for (int i = 0; i < size; i++) {
-            arr[i] = random.nextInt(k);
+            arr[i] = values[random.nextInt(k)];
         }
         return arr;
+    }
+
+    // -------------------------------------------------------------------------
+    // D1-D5 ĐÚNG ĐỀ (dùng cho bộ đo chạy từng JVM riêng: MeasureRunner / MeasureWorker)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Sinh dữ liệu đúng bảng D1-D5 của đề, tái lập hoàn toàn theo {@code seed}.
+     *
+     * <ul>
+     *   <li>D1: N giá trị đều trên [0, 2^31 - 1], {@link java.util.SplittableRandom}(seed)</li>
+     *   <li>D2: bản sao của D1 sắp tăng dần</li>
+     *   <li>D3: D2 rồi hoán đổi N/1.000 cặp vị trí khác nhau chọn ngẫu nhiên (N &lt; 1.000 thì giống D2)</li>
+     *   <li>D4: D2 đảo ngược</li>
+     *   <li>D5: K giá trị phân biệt sinh từ seed, mỗi phần tử chọn đều trong K giá trị đó (cần k &gt;= 1)</li>
+     * </ul>
+     *
+     * @param dataset "D1" .. "D5"
+     * @param n       số phần tử (&gt;= 0)
+     * @param k       chỉ dùng cho D5; các dataset khác bỏ qua
+     * @param seed    seed của lượt chạy
+     */
+    public static int[] generateSpec(String dataset, int n, int k, long seed) {
+        if (n < 0) throw new IllegalArgumentException("n must be >= 0, got: " + n);
+        switch (dataset) {
+            case "D1": return specD1(n, seed);
+            case "D2": return specD2(n, seed);
+            case "D3": return specD3(n, seed);
+            case "D4": return specD4(n, seed);
+            case "D5": return generateManyDuplicatesK(n, k, new Random(seed));
+            default: throw new IllegalArgumentException("Unknown dataset: " + dataset + ". Expected D1..D5");
+        }
+    }
+
+    private static int[] specD1(int n, long seed) {
+        java.util.SplittableRandom r = new java.util.SplittableRandom(seed);
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = r.nextInt() & Integer.MAX_VALUE;
+        return a;
+    }
+
+    private static int[] specD2(int n, long seed) {
+        int[] a = specD1(n, seed);
+        Arrays.sort(a); // chỉ trong generator, không nằm trong vùng đo
+        return a;
+    }
+
+    private static int[] specD3(int n, long seed) {
+        int[] a = specD2(n, seed);
+        java.util.SplittableRandom r = new java.util.SplittableRandom(seed ^ 0x9E3779B97F4A7C15L);
+        int swaps = n / 1000;
+        for (int s = 0; s < swaps; s++) {
+            int i = r.nextInt(n), j = r.nextInt(n - 1); // n >= 1000 nên n - 1 >= 1
+            if (j >= i) j++;                              // hai vị trí khác nhau: mỗi lần là một hoán đổi thật
+            int t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+        return a;
+    }
+
+    private static int[] specD4(int n, long seed) {
+        int[] a = specD2(n, seed);
+        for (int i = 0, j = n - 1; i < j; i++, j--) {
+            int t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+        return a;
     }
 
     // -------------------------------------------------------------------------
