@@ -35,9 +35,11 @@ CSD201_Group5/
 │   └── TV1_QuickSort_D1_D2_Technical_Report.md
 ├── results/
 │   ├── benchmark.csv
+│   ├── comparison_all_algorithms.csv
 │   ├── quick_sort_results.csv
 │   ├── rq1_benchmark.csv
-│   └── rq2_benchmark.csv
+│   ├── rq2_benchmark.csv
+│   └── rq2_full_comparison.csv
 └── src/
     ├── main/java/edu/csd201/sort/
     │   ├── Benchmark.java
@@ -148,9 +150,11 @@ java -cp "target/classes;target/test-classes" edu.csd201.sort.KillerAdversaryTes
 
 ---
 
-## 📊 Tóm Tắt Kết Quả Thực Nghiệm Tiêu Biểu (RQ1 — Phân phối D1)
+## 📊 Tóm Tắt Kết Quả Thực Nghiệm (RQ1, RQ2 & RQ3)
 
-Số liệu đối sánh tổng hợp trên phân phối ngẫu nhiên `D1` (trích từ [`results/comparison_all_algorithms.csv`](results/comparison_all_algorithms.csv) và [`docs/RQ1_Methods_and_Results_Report.md`](docs/RQ1_Methods_and_Results_Report.md)):
+### 1. RQ1 — Khả năng mở rộng theo kích thước $N$ trên phân phối ngẫu nhiên `D1`
+
+Số liệu đối sánh thời gian chạy (ms) khi $N$ tăng từ $10^5$ đến $5 \times 10^7$ trên phân phối `D1` (trích từ [`results/comparison_all_algorithms.csv`](results/comparison_all_algorithms.csv) và [`results/rq1_benchmark.csv`](results/rq1_benchmark.csv)):
 
 | Kích thước $N$ | QuickSort (ms) | MergeSort (ms) | HeapSort (ms) | RadixSort (ms) | PdqSort (ms) | Arrays.sort (ms) |
 |---:|---:|---:|---:|---:|---:|---:|
@@ -159,8 +163,56 @@ Số liệu đối sánh tổng hợp trên phân phối ngẫu nhiên `D1` (tr�
 | `5,000,000` | 561.51 | 1,220.48 | 2,576.57 | **84.09** | 2,710.51 | 1,062.80 |
 | `10,000,000` | 2,955.62 | 4,480.05 | 5,852.87 | **235.74** | 6,882.81 | 2,033.62 |
 | `20,000,000` | 5,352.74 | 9,822.90 | 13,058.99 | **511.26** | 16,493.78 | 4,614.35 |
+| `50,000,000` | 9,027.94 | 13,458.22 | — | **1,057.49** | — | — |
 
-Các báo cáo phân tích chuyên sâu được lưu trữ tại:
+- **Nhận xét RQ1:** `RadixSort` (LSD cơ số 256) đạt tốc độ nhanh nhất ở mọi mốc kích thước nhờ độ phức tạp tuyến tính $O(N)$, nhưng cần mảng phụ $4N$ byte ($200\text{ MB}$ tại $N=5\times 10^7$). Trong nhóm thuật toán so sánh tại chỗ ($O(1)$ bộ nhớ Heap phụ), `QuickSort` (`hoare-med3`) vượt trội hơn `MergeSort` ($1.5\times - 1.8\times$) và `HeapSort` ($2.4\times - 4.5\times$) nhờ tính cục bộ bộ nhớ đệm (cache locality).
+
+---
+
+### 2. RQ2 — Ảnh hưởng của phân phối dữ liệu (`D1` – `D5`) tại $N = 1,000,000$
+
+Số liệu thời gian thực thi (ms) của các thuật toán trên 5 họ phân phối dữ liệu chuẩn (trích từ [`results/rq2_full_comparison.csv`](results/rq2_full_comparison.csv) và [`results/rq2_benchmark.csv`](results/rq2_benchmark.csv)):
+
+| Phân phối dữ liệu | QuickSort (ms) | MergeSort (ms) | HeapSort (ms) | RadixSort (ms) | PdqSort Full (ms) | Arrays.sort (ms) |
+|---|---:|---:|---:|---:|---:|---:|
+| **D1 (Ngẫu nhiên đều)** | 133.07 | 182.46 | 162.44 | **9.07** | 194.71 | 100.10 |
+| **D2 (Tăng dần sẵn)** | 34.25 | 70.73 | 76.42 | 25.11 | 15.66 | **1.04** |
+| **D3 (Gần tăng dần)** | 22.68 | 72.76 | 89.39 | 23.89 | 31.51 | **16.34** |
+| **D4 (Giảm dần)** | 23.69 | 77.41 | 87.81 | 21.62 | 13.12 | **2.25** |
+| **D5 (Trùng lặp $K=1000$)** | 75.23 | 138.03 | 141.09 | **16.49** | 214.25 | 48.82 |
+| **D5 (Trùng lặp $K=10$)** | 44.27 | 108.30 | 88.40 | 28.66 | 158.90 | **15.30** |
+| **D5 (Trùng lặp $K=2$)** | 30.90 | 82.56 | 44.09 | 19.29 | 130.40 | **10.86** |
+
+- **Nhận xét RQ2:**
+  - Trên dữ liệu có thứ tự hoặc gần có thứ tự (`D2`, `D3`, `D4`), `QuickSort` (nhờ chọn chốt Median-of-Three chia đôi cân bằng với `max_depth = 22`) và `PdqSort` xử lý rất nhanh ($13 - 34\text{ ms}$), bỏ xa `MergeSort` và `HeapSort` ($70 - 89\text{ ms}$).
+  - Trên dữ liệu nhiều khóa trùng lặp (`D5` với $K=1000, 10, 2$), phân hoạch Hoare hai chiều dừng tại các phần tử bằng chốt giúp `QuickSort` giữ cây đệ quy cân bằng và giảm thời gian từ $133.07\text{ ms}$ (`D1`) xuống $30.90\text{ ms}$ ($K=2$). `RadixSort` duy trì thời gian ổn định quanh $9 - 28\text{ ms}$ bất kể phân phối đầu vào.
+
+---
+
+### 3. RQ3 — Đánh giá `PdqSort` và Phân tích tách biệt Cơ chế A / Cơ chế B
+
+Đối sánh các biến thể của **Pattern-Defeating Quicksort** (`PdqSort Full`, `PdqSort noA` tắt phát hiện đoạn có thứ tự / Insertion Sort sớm, `PdqSort noB` tắt phân hoạch gom khóa trùng `partitionLeft`) cùng `QuickSort` và `HeapSort` (trích từ [`results/rq2_full_comparison.csv`](results/rq2_full_comparison.csv) và [`KillerAdversaryTest.java`](src/test/java/edu/csd201/sort/KillerAdversaryTest.java)):
+
+| Kịch bản / Phân phối ($N = 10^6$) | QuickSort (TV1) | HeapSort (TV3) | PdqSort Full (TV5) | PdqSort `noA` (TV5) | PdqSort `noB` (TV6) | Vai trò cơ chế nổi bật |
+|---|---:|---:|---:|---:|---:|---|
+| **D1 (Ngẫu nhiên đều)** | **133.07 ms** | 162.44 ms | 194.71 ms | 184.04 ms | 187.14 ms | Chi phí kiểm tra mẫu nhỏ trên dữ liệu ngẫu nhiên |
+| **D2 (Tăng dần sẵn)** | 34.25 ms | 76.42 ms | **15.66 ms** | 36.98 ms | 3.20 ms | **Cơ chế A** giúp `Full` nhanh gấp $2.36\times$ so với `noA` |
+| **D3 (Gần tăng dần)** | 22.68 ms | 89.39 ms | 31.51 ms | **18.73 ms** | 24.45 ms | Phân hoạch cân bằng kết hợp Insertion Sort đoạn ngắn |
+| **D4 (Giảm dần)** | 23.69 ms | 87.81 ms | **13.12 ms** | 31.65 ms | 6.10 ms | **Cơ chế A** phát hiện mẫu giảm dần, nhanh gấp $2.41\times$ so với `noA` |
+| **D5 ($K=10$, ít khóa)** | **44.27 ms** | 88.40 ms | 158.90 ms | 177.58 ms | 173.59 ms | **Cơ chế B** (`partitionLeft`) giảm số phép so sánh lặp trên khóa trùng |
+| **D5 ($K=2$, nhị phân)** | **30.90 ms** | 44.09 ms | 130.40 ms | 113.29 ms | 121.50 ms | Gom khóa bằng chốt, ngăn suy biến độ sâu đệ quy |
+| **Musser Killer ($N=10^5$)** | Suy biến $O(N^2)$ | $O(N \log N)$ | **Chặn đứng $O(N \log N)$** | Chặn đứng $O(N \log N)$ | Chặn đứng $O(N \log N)$ | **Bad-partition limit + Shuffle + Fallback `HeapSort`** bảo vệ cận trên |
+
+- **Nhận xét RQ3:**
+  - **Hiệu quả Cơ chế A (`PdqSort Full` vs `noA`):** Khi tắt Cơ chế A (`noA`), thời gian chạy trên dữ liệu đã sắp (`D2`) và giảm dần (`D4`) tăng vọt từ $15.66\text{ ms} \to 36.98\text{ ms}$ và $13.12\text{ ms} \to 31.65\text{ ms}$, chứng minh cơ chế phát hiện thứ tự sớm giúp tiết kiệm hơn $55\%$ thời gian.
+  - **Hiệu quả Cơ chế B (`PdqSort Full` vs `noB`):** Trên dữ liệu trùng lặp cao (`D5`), khi tắt `partitionLeft` (`noB`), toàn bộ các phần tử bằng chốt tiếp tục bị đẩy vào nhánh đệ quy bên phải thay vì được cô lập, làm tăng số phép so sánh khóa.
+  - **Chống suy biến đối kháng (Musser Median-of-Three Killer):** Trước dãy đối kháng cố tình đánh lừa chốt Median-of-Three của `QuickSort` cổ điển, `PdqSort` đếm số lần phân hoạch lệch (`badAllowed = log2(N)`), tự động xáo trộn mẫu ngẫu nhiên và chuyển sang `HeapSort` để giữ vững độ phức tạp $O(N \log N)$ trong mọi trường hợp.
+
+---
+
+### 📚 Tài Liệu & Báo Cáo Chi Tiết
 - [Báo cáo Phương pháp & Kết quả RQ1 (Cặp 1)](docs/RQ1_Methods_and_Results_Report.md)
 - [Báo cáo thực nghiệm RQ1 & Baseline RQ2/RQ3 QuickSort](docs/RQ1_QuickSort_Report.md)
 - [Báo cáo kỹ thuật TV1 QuickSort & D1/D2](docs/TV1_QuickSort_D1_D2_Technical_Report.md)
+- [Bảng tổng hợp kết quả RQ1 (`comparison_all_algorithms.csv`)](results/comparison_all_algorithms.csv)
+- [Bảng tổng hợp kết quả RQ2 & RQ3 (`rq2_full_comparison.csv`)](results/rq2_full_comparison.csv)
