@@ -45,12 +45,14 @@ CSD201_Group5/
 │   └── test/java/edu/csd201/sort/
 │       ├── QuickSortTest.java               # [TV1] 42 ca kiểm thử toàn diện + 46.233 hoán vị
 │       ├── RadixSortTest.java               # [TV4] 1.043 ca kiểm thử giá trị biên và cơ số
+│       ├── PdqSortTest.java                 # [TV6] kiểm thử noB với Arrays.sort và killer adversary
 │       └── Datasets.java                    # Bộ fixture kiểm thử độc lập
 │
 ├── docs/                                    # TÀI LIỆU DỰ ÁN & BÁO CÁO NGHIÊN CỨU
 │   ├── 261014-de-tai-1-sorting-pdqsort-csd201-fa26.docx  # Đề tài chính thức từ giảng viên
 │   ├── Phan_cong_chuan_theo_de_Sorting_pdqsort.xlsx      # Bảng phân công ma trận công việc 6 TV
-│   └── RQ1_Methods_and_Results_Report.md                 # Báo cáo phương pháp & kết quả thực nghiệm RQ1
+│   ├── RQ1_Methods_and_Results_Report.md                 # Báo cáo phương pháp & kết quả thực nghiệm RQ1
+│   └── RQ3_Methods_and_Results_Report.md                 # Phương pháp, dữ liệu và phân tích RQ3 (TV6)
 │
 ├── results/                                 # KẾT QUẢ THỰC NGHIỆM CHÍNH THỨC
 │   ├── benchmark.csv                        # Kết quả benchmark toàn diện
@@ -72,6 +74,12 @@ CSD201_Group5/
 - **JDK 17** (hoặc OpenJDK 17+)
 - **Apache Maven 3.8+**
 - Hệ điều hành: Windows, Linux hoặc macOS
+
+Nếu máy có nhiều JDK, chọn JDK 17 trong PowerShell trước khi chạy lệnh build/test:
+```powershell
+$env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+```
 
 ### 3.1. Biên dịch toàn bộ dự án qua Maven
 ```powershell
@@ -99,9 +107,15 @@ java -cp "target/classes;target/test-classes" edu.csd201.sort.RadixSortTest
 java -cp target/classes edu.csd201.sort.ExperimentRunner randomized-test 20261016 1000 results/randomized-test.log
 ```
 
+#### Kiểm thử riêng pdqsort noB (TV6):
+```powershell
+javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/edu/csd201/sort/PdqSortTest.java
+java -cp "target/classes;target/test-classes" edu.csd201.sort.PdqSortTest
+```
+
 ---
 
-## 4. Hướng dẫn Chạy Thực nghiệm Benchmark (RQ1, RQ2, RQ3)
+## 4. Hướng dẫn Chạy Thực nghiệm Benchmark (RQ1, RQ2)
 
 Runner tập trung `edu.csd201.sort.Benchmark` hỗ trợ đo thời gian chạy thực tế (`timeMs`), số phép so sánh (`comparisons`), số phép gán (`assignments`), bộ nhớ phụ (`extraMemBytes`) và độ sâu đệ quy (`max_depth`):
 
@@ -123,6 +137,20 @@ Kết quả sẽ tự động lưu vào thư mục `results/`:
 - `results/rq1_benchmark.csv`
 - `results/rq2_benchmark.csv`
 - `results/benchmark.csv`
+
+### 4.1. RQ3 — pdqsort noB và baseline Arrays.sort (TV6)
+
+`ExperimentRunner rq3` so sánh pdqsort đầy đủ, pdqsort noB và `Arrays.sort`
+trên D1–D4, D5_K2 và adversary duplicate-heavy có thể làm noB thực hiện nhiều
+lần partition. Mặc định dùng seed `20261016`, N = 4096 và 3 lượt đo:
+
+```powershell
+java -cp target/classes edu.csd201.sort.ExperimentRunner rq3 20261016 4096 3 results/rq3_benchmark.csv
+```
+
+Lệnh nhận dạng `count noB <integers...>` cũng có thể dùng để xem metrics của
+biến thể noB. Chi tiết phương pháp, schema CSV và giới hạn diễn giải adversary:
+[RQ3_Methods_and_Results_Report.md](docs/RQ3_Methods_and_Results_Report.md).
 
 ---
 
