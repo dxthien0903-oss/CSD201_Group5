@@ -3,26 +3,12 @@ package edu.csd201.sort;
 import java.util.Arrays;
 import java.util.Random;
 
+import org.junit.Test;
+
 public final class HeapSortTest {
 
-    private static int assertions;
-
-    private HeapSortTest() {}
-
-    public static void main(String[] args) {
-        testFixedAssignmentCases();
-        System.out.println("PASS: 5 fixed cases from section 5, \"Kiểm tra tính đúng\", in docs/261014-de-tai-1-sorting-pdqsort-csd201-fa26.docx");
-
-        testRandomizedInputs();
-        System.out.println("PASS: 5,000 deterministic arrays (1,000 each: random, ascending, descending, all equal, few distinct), sizes 0-300, seed 20261028");
-
-        testSubsegments();
-        System.out.println("PASS: subsegment sorting preserves values outside [lo, hi), including lo == hi and length 1");
-
-        System.out.println("All tests passed (" + assertions + " assertions).");
-    }
-
-    private static void testFixedAssignmentCases() {
+    @Test
+    public void testFixedAssignmentCases() {
         assertSort(new int[] {7}, new int[] {7}, "assignment case [7]");
         assertSort(new int[] {2, 1}, new int[] {1, 2}, "assignment case [2, 1]");
         assertSort(new int[] {3, 3, 3}, new int[] {3, 3, 3}, "assignment case [3, 3, 3]");
@@ -33,7 +19,8 @@ public final class HeapSortTest {
                 "assignment case [5, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]");
     }
 
-    private static void testRandomizedInputs() {
+    @Test
+    public void testRandomizedInputs() {
         Random random = new Random(20261028L);
         for (int iteration = 0; iteration < 1000; iteration++) {
             int size = random.nextInt(301);
@@ -63,7 +50,8 @@ public final class HeapSortTest {
         }
     }
 
-    private static void testSubsegments() {
+    @Test
+    public void testSubsegments() {
         int[] actual = {91, 4, -2, 4, 17, -100, 92};
         HeapSort.sortSubsegment(actual, 1, 6);
         assertArrayEquals(new int[] {91, -100, -2, 4, 4, 17, 92}, actual,
@@ -95,11 +83,7 @@ public final class HeapSortTest {
     }
 
     private static void assertArrayEquals(int[] expected, int[] actual, String description) {
-        assertions++;
-        if (!Arrays.equals(expected, actual)) {
-            throw new AssertionError(description + ": expected " + Arrays.toString(expected)
-                    + " but was " + Arrays.toString(actual));
-        }
+        org.junit.Assert.assertArrayEquals(description, expected, actual);
     }
 
     private static void reverse(int[] values) {
