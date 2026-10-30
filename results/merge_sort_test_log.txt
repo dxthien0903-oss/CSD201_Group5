@@ -1,0 +1,115 @@
+MergeSort correctness suite (TV2)
+java.version=25.0.4 java.vm.name=OpenJDK 64-Bit Server VM
+seed=20261016
+
+[fixed cases]
+PASS fixed#1 [7] sorted correctly
+PASS fixed#2 [2, 1] sorted correctly
+PASS fixed#3 [3, 3, 3] sorted correctly
+PASS fixed#4 [0, 2147483647, 0] sorted correctly
+PASS fixed#5 [5, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5] sorted correctly
+PASS fixed#6 [] sorted correctly
+PASS fixed#7 [0] sorted correctly
+PASS fixed#8 [1, 0] sorted correctly
+PASS fixed#9 [0, 2147483647] sorted correctly
+PASS fixed#10 [2147483647, 0, 2147483647] sorted correctly
+PASS fixed#11 [1, 2, 3, 4, 5] sorted correctly
+PASS fixed#12 [5, 4, 3, 2, 1] sorted correctly
+[large fixed-shape cases]
+PASS N=100000 all-equal sorted correctly
+PASS N=100000 ascending sorted correctly
+PASS N=100000 descending sorted correctly
+PASS N=100000 two-value extremes (0 / 2^31-1) sorted correctly
+[randomized cases D1-D5]
+PASS 200 random arrays of D1, N in [0, 100] match Arrays.sort
+PASS 200 random arrays of D2, N in [0, 100] match Arrays.sort
+PASS 200 random arrays of D3, N in [0, 100] match Arrays.sort
+PASS 200 random arrays of D4, N in [0, 100] match Arrays.sort
+PASS 200 random arrays of D5, N in [0, 100] match Arrays.sort
+PASS 200 random arrays over domain {0..3} match Arrays.sort
+[merge contract (no skip-merge, counters, max_depth, extra memory)]
+PASS sorted N=1024: merge không bị bỏ qua, comparisons = (N/2)·log2N = 5120 (got 5120)
+PASS sorted N=1024: assignments = 2·N·log2N = 20480 (got 20480)
+  sorted N=1024 -> comparisons=5120 assignments=20480 extraMem=4096 B maxDepth=11
+PASS sort() trên mảng đã sắp N=1024 cũng không bỏ merge: comparisons=5120, assignments=20480 (got 5120, 20480)
+PASS reversed N=1024 sorted correctly
+PASS reversed N=1024: comparisons = 5120 (got 5120)
+  reversed N=1024 -> comparisons=5120 assignments=20480 extraMem=4096 B maxDepth=11
+PASS D1 N=20000: sort(int[]) không đếm cho cùng kết quả với sortCounted
+PASS D2 N=20000: sort(int[]) không đếm cho cùng kết quả với sortCounted
+PASS D3 N=20000: sort(int[]) không đếm cho cùng kết quả với sortCounted
+PASS D4 N=20000: sort(int[]) không đếm cho cùng kết quả với sortCounted
+PASS D5 N=20000: sort(int[]) không đếm cho cùng kết quả với sortCounted
+PASS random N=5000 counted mode sorts correctly
+PASS random N=5000: log2(N!) <= comparisons <= N·ceil(log2N) (got 55248)
+  random N=5000 seed=7 -> comparisons=55248 assignments=123616 extraMem=20000 B maxDepth=14
+PASS N=2 maxDepth=2 (got 2)
+PASS N=3 maxDepth=3 (got 3)
+PASS N=4 maxDepth=3 (got 3)
+PASS N=1024 maxDepth=11 (got 11)
+PASS N=100000 maxDepth=18 (got 18)
+PASS N=1000000 maxDepth=21 (got 21)
+PASS N=1 sortCounted không đệ quy: maxDepth = 0 (got 0)
+PASS N=2 extraMemoryBytes = 4·N (sort & sortCounted)
+PASS N=1000 extraMemoryBytes = 4·N (sort & sortCounted)
+PASS N=100000 extraMemoryBytes = 4·N (sort & sortCounted)
+PASS timing mode sort(): maxDepth = 0
+PASS timing mode sort(): sorted correctly
+PASS reset() đưa mọi bộ đếm về 0
+PASS verify() trả về true với mảng hợp lệ
+PASS verify() không sửa mảng đầu vào
+PASS sort(null) ném NullPointerException
+PASS sort(arr, null) ném NullPointerException
+PASS sortCounted(null, m) ném NullPointerException
+[single allocation of temp array]
+PASS N=10^6: sort() cấp phát ≈ một mảng int[N] (4000000 B), thực tế 4000056 B
+PASS N=10^6: sorted correctly
+[exhaustive sweep]
+PASS all 3280 arrays of length 0..7 over {0,1,2} sort correctly
+PASS all 46233 permutations of length 1..8 sort correctly
+[D1-D5 generator rules]
+PASS D1 (generateSpec) trùng DataGenerator.d1 cùng seed
+PASS D1 nằm trong [0, 2^31-1]
+PASS D2 = D1 đã sắp tăng dần (cùng multiset)
+PASS D3 giữ nguyên multiset của D2
+PASS D3 khác D2 tại 1..200 vị trí (N/1000=100 cặp hoán đổi), thực tế 200
+PASS D3 tái lập theo seed
+PASS D3 khác nhau khi đổi seed
+PASS D3 với N<1000 không hoán đổi (giống D2)
+PASS D4 = D2 đảo ngược
+PASS D4 giảm dần (không tăng)
+PASS D5 K=1000: có đúng 1000 giá trị phân biệt
+PASS D5 K=1000: khóa trong [0, 2^31-1]
+PASS D5 K=1000: tái lập theo seed
+PASS D5 K=10: có đúng 10 giá trị phân biệt
+PASS D5 K=10: khóa trong [0, 2^31-1]
+PASS D5 K=10: tái lập theo seed
+PASS D5 K=2: có đúng 2 giá trị phân biệt
+PASS D5 K=2: khóa trong [0, 2^31-1]
+PASS D5 K=2: tái lập theo seed
+PASS D5 K=1: có đúng 1 giá trị phân biệt
+PASS D5 K=1: khóa trong [0, 2^31-1]
+PASS D5 K=1: tái lập theo seed
+PASS D1 với N=0 trả về mảng rỗng
+PASS D1 với N=1 trả về đúng 1 phần tử
+PASS D2 với N=0 trả về mảng rỗng
+PASS D2 với N=1 trả về đúng 1 phần tử
+PASS D3 với N=0 trả về mảng rỗng
+PASS D3 với N=1 trả về đúng 1 phần tử
+PASS D4 với N=0 trả về mảng rỗng
+PASS D4 với N=1 trả về đúng 1 phần tử
+PASS D5 với N=0 trả về mảng rỗng
+PASS D5 với N=1 trả về đúng 1 phần tử
+PASS Dataset lạ bị từ chối
+PASS N âm bị từ chối
+[spec datasets at N=10^6]
+PASS D1 N=10^6 seed=20261016 khớp Arrays.sort (output_check h=-4074488443990278306)
+PASS D2 N=10^6 seed=20261016 khớp Arrays.sort (output_check h=-4074488443990278306)
+PASS D3 N=10^6 seed=20261016 khớp Arrays.sort (output_check h=-4074488443990278306)
+PASS D4 N=10^6 seed=20261016 khớp Arrays.sort (output_check h=-4074488443990278306)
+PASS D5/K=1000 N=10^6 seed=20261016 khớp Arrays.sort (output_check h=2574859180644470647)
+PASS D5/K=10 N=10^6 seed=20261016 khớp Arrays.sort (output_check h=-7245366515234200790)
+PASS D5/K=2 N=10^6 seed=20261016 khớp Arrays.sort (output_check h=3495776021065216512)
+
+SUMMARY passed=97 failed=0
+RESULT ALL_TESTS_PASSED
