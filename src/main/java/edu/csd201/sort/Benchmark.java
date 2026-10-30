@@ -56,6 +56,15 @@ public final class Benchmark {
         }
     }
 
+    static IntSorter sorterFor(String algorithmName) {
+        return switch (algorithmName) {
+            case "MergeSort" -> MergeSort::sort;
+            case "HeapSort" -> HeapSort::sort;
+            default -> throw new IllegalArgumentException(
+                    "Unsupported benchmark sorter: " + algorithmName);
+        };
+    }
+
     static final class MetricsSummary {
         private long comparisonTotal;
         private long assignmentTotal;
@@ -527,8 +536,8 @@ public final class Benchmark {
 
     private static void sortForVerification(SortAlgorithm algorithm, int[] values) {
         switch (algorithm) {
-            case MERGE_SORT -> MergeSort.sort(values);
-            case HEAP_SORT -> HeapSort.sort(values);
+            case MERGE_SORT -> sorterFor("MergeSort").sort(values);
+            case HEAP_SORT -> sorterFor("HeapSort").sort(values);
             case PDQ_SORT -> PdqSort.sort(values);
         }
     }

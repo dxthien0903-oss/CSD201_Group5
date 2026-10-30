@@ -32,6 +32,39 @@ public final class BenchmarkDispatchTest {
     }
 
     @Test
+    public void mergeSortAdapterSortsValues() {
+        assertAdapterSorts("MergeSort");
+    }
+
+    @Test
+    public void heapSortAdapterSortsValues() {
+        assertAdapterSorts("HeapSort");
+    }
+
+    @Test
+    public void adaptersHandleEmptyAndSingleElementArrays() {
+        for (String algorithm : new String[] {"MergeSort", "HeapSort"}) {
+            int[] empty = {};
+            Benchmark.sorterFor(algorithm).sort(empty);
+            assertArrayEquals(algorithm + " empty", new int[0], empty);
+
+            int[] single = {-7};
+            Benchmark.sorterFor(algorithm).sort(single);
+            assertArrayEquals(algorithm + " single element", new int[] {-7}, single);
+        }
+    }
+
+    @Test
+    public void rejectsUnsupportedSorterAdapter() {
+        try {
+            Benchmark.sorterFor("QuickSort");
+            fail("unsupported sorter adapters must be rejected");
+        } catch (IllegalArgumentException exception) {
+            assertEquals("Unsupported benchmark sorter: QuickSort", exception.getMessage());
+        }
+    }
+
+    @Test
     public void missingMetricsAreExcludedFromAverages() {
         Benchmark.MetricsSummary summary = new Benchmark.MetricsSummary();
         summary.add(100, 40);
@@ -52,5 +85,12 @@ public final class BenchmarkDispatchTest {
         assertEquals("", Benchmark.formatCsvMetric(-1));
         assertEquals("0", Benchmark.formatCsvMetric(0));
         assertEquals("-", Benchmark.formatSummaryMetric(summary.averageComparisons()));
+    }
+
+    private static void assertAdapterSorts(String algorithm) {
+        int[] values = {3, -1, 2, -1, Integer.MIN_VALUE, Integer.MAX_VALUE};
+        Benchmark.sorterFor(algorithm).sort(values);
+        assertArrayEquals(algorithm,
+                new int[] {Integer.MIN_VALUE, -1, -1, 2, 3, Integer.MAX_VALUE}, values);
     }
 }
