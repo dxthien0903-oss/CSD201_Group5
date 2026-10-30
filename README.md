@@ -9,16 +9,16 @@ Dự án nghiên cứu thực nghiệm, cài đặt từ đầu và đánh giá 
 
 ---
 
-## 👥 Phân Công Nhóm (Group 5)
+## 1. Thành viên nhóm & Phân công nhiệm vụ
 
-| Thành viên | Họ và tên | Hạng mục phụ trách chính |
-|:---:|---|---|
-| **TV1** | **Trần Văn Phúc** | Cài đặt `QuickSort` (Hoare + Median-of-Three), sinh dữ liệu chuẩn `D1`/`D2`, kiểm thử `QuickSortTest` & `KillerAdversaryTest`, điều phối thực nghiệm RQ1 |
-| **TV2** | **Lương Đức Duy** | Cài đặt `MergeSort`, sinh dữ liệu `D3`/`D4`, điều phối `Benchmark` tổng hợp cho RQ1 & RQ2 |
-| **TV3** | **Trần Minh Quân** | Cài đặt `HeapSort`, phân tích giới hạn bộ nhớ tại chỗ $O(1)$ và cung cấp sắp xếp đoạn con `[lo, hi)` |
-| **TV4** | **Đặng Xuân Thiện** | Cài đặt `RadixSort` (LSD base 256), sinh dữ liệu `D5`, xây dựng `MeasureRunner` / `MeasureWorker` cô lập tiến trình JVM |
-| **TV5** | **Nguyễn Quốc Bảo** | Cài đặt `PdqSort` (Pattern-Defeating Quicksort) và biến thể `noA`, thực nghiệm RQ3 đối sánh với QuickSort và HeapSort |
-| **TV6** | **Lê Hoàng Khang** | Cài đặt biến thể `noB`, kiểm chứng độc lập độ đúng đắn, tổng hợp biểu đồ thực nghiệm và biên soạn báo cáo học thuật |
+| TV | Vai trò / Cặp RQ | Thuật toán sở hữu | Trách nhiệm dữ liệu & hạ tầng | Đầu ra chính |
+| :---: | :---: | :--- | :--- | :--- |
+| **TV1** | Cặp 1 — Chủ trì RQ1 | **Quick Sort** (Hoare + median-of-three) | Generator $D_1$ (Random), $D_2$ (Sorted) | `QuickSort.java`, test suite 46k permutations, CSV RQ1 |
+| **TV2** | Cặp 1 — Chủ trì RQ1 | **Merge Sort** (Top-down, 1 temp array) | Generator $D_3$ (Nearly sorted), $D_4$ (Reverse) | `MergeSort.java`, `DataGenerator.java`, biểu đồ RQ1 |
+| **TV3** | Cặp 2 — Chủ trì RQ2 | **Heap Sort** (Max-heap in-place) | Core Benchmark runner, `sort_subsegment` | `HeapSort.java`, framework đo bộ nhớ / thời gian |
+| **TV4** | Cặp 2 — Chủ trì RQ2 | **Radix Sort** (LSD base 256, 4 passes) | Generator $D_5$ (Many duplicates: $K=1000, 10, 2$) | `RadixSort.java`, đếm $8N$ đọc / $4N$ ghi, CSV RQ2 |
+| **TV5** | Cặp 3 — Chủ trì RQ3 | **pdqsort** (full & `noA`) | Tích hợp HeapSort fallback, randomized test | `PdqSort.java`, `SortMetrics.java`, phân tích cơ chế A |
+| **TV6** | Cặp 3 — Chủ trì RQ3 | **pdqsort** (`noB`) & CLI | Thư viện baseline `Arrays.sort`, killer adversary | `ExperimentRunner.java`, dữ liệu đối kháng, phân tích cơ chế B |
 
 ---
 
