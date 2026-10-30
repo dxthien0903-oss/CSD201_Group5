@@ -15,10 +15,10 @@ Dự án nghiên cứu thực nghiệm, cài đặt từ đầu và đánh giá 
 |:---:|---|---|
 | **TV1** | **Trần Văn Phúc** | Cài đặt `QuickSort` (Hoare + Median-of-Three), sinh dữ liệu chuẩn `D1`/`D2`, kiểm thử `QuickSortTest` & `KillerAdversaryTest`, điều phối thực nghiệm RQ1 |
 | **TV2** | **Lương Đức Duy** | Cài đặt `MergeSort`, sinh dữ liệu `D3`/`D4`, điều phối `Benchmark` tổng hợp cho RQ1 & RQ2 |
-| **TV3** | **Trần Minh Quân** | Cài đặt `HeapSort`, phân tích giới hạn bộ nhớ tại chỗ $O(1)$ và cung cấp sắp xếp đoạn con `[lo, hi)` |
+| **TV3** | **Nguyễn Anh Khoa** | Cài đặt `HeapSort`, phân tích giới hạn bộ nhớ tại chỗ $O(1)$ và cung cấp sắp xếp đoạn con `[lo, hi)` |
 | **TV4** | **Đặng Xuân Thiện** | Cài đặt `RadixSort` (LSD base 256), sinh dữ liệu `D5`, xây dựng `MeasureRunner` / `MeasureWorker` cô lập tiến trình JVM |
-| **TV5** | **Nguyễn Quốc Bảo** | Cài đặt `PdqSort` (Pattern-Defeating Quicksort) và biến thể `noA`, thực nghiệm RQ3 đối sánh với QuickSort và HeapSort |
-| **TV6** | **Lê Hoàng Khang** | Cài đặt biến thể `noB`, kiểm chứng độc lập độ đúng đắn, tổng hợp biểu đồ thực nghiệm và biên soạn báo cáo học thuật |
+| **TV5** | **Đào Cao Duy** | Cài đặt `PdqSort` (Pattern-Defeating Quicksort) và biến thể `noA`, thực nghiệm RQ3 đối sánh với QuickSort và HeapSort |
+| **TV6** | **Lê Bách** | Cài đặt biến thể `noB`, kiểm chứng độc lập độ đúng đắn, tổng hợp biểu đồ thực nghiệm và biên soạn báo cáo học thuật |
 
 ---
 
