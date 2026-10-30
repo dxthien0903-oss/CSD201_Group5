@@ -1,0 +1,4 @@
+run_id,rq,algo,variant,dataset,n,k,seed,repeat,count
+M0001,RQ1,merge,base,D1,100000,0,1,1,false
+M0002,RQ1,merge,base,D3,100000,0,1,1,false
+M0003,RQ1,merge,base,D1,100000,0,1,1,true
