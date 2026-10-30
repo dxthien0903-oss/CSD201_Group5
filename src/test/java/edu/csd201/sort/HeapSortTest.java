@@ -5,6 +5,9 @@ import java.util.Random;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 public final class HeapSortTest {
 
     @Test
@@ -66,6 +69,60 @@ public final class HeapSortTest {
         int[] singleElementBefore = singleElementSegment.clone();
         HeapSort.sortSubsegment(singleElementSegment, 1, 2);
         assertArrayEquals(singleElementBefore, singleElementSegment, "single-element subsegment [1, 2)");
+    }
+
+    @Test
+    public void testEmptyArray() {
+        int[] empty = {};
+        HeapSort.sort(empty);
+        assertArrayEquals(new int[0], empty, "empty array");
+    }
+
+    @Test
+    public void testComparisonAndAssignmentCounts() {
+        int[] values = {3, 1, 2};
+        HeapSort.HeapMetrics metrics = new HeapSort.HeapMetrics();
+
+        HeapSort.sort(values, metrics);
+
+        assertArrayEquals(new int[] {1, 2, 3}, values, "metrics input");
+        assertEquals("key comparisons", 3, metrics.comparisons());
+        assertEquals("array element assignments", 7, metrics.assignments());
+
+        metrics.reset();
+        HeapSort.sort(new int[0], metrics);
+        assertEquals("empty input comparisons", 0, metrics.comparisons());
+        assertEquals("empty input assignments", 0, metrics.assignments());
+    }
+
+    @Test
+    public void testLargeInput() {
+        Random random = new Random(20261029L);
+        int[] values = new int[100_000];
+        for (int i = 0; i < values.length; i++) {
+            values[i] = random.nextInt();
+        }
+
+        int[] expected = values.clone();
+        Arrays.sort(expected);
+        HeapSort.sort(values);
+        assertArrayEquals(expected, values, "large random input");
+    }
+
+    @Test
+    public void testPdqHeapFallbackUsesHeapSort() {
+        int[] values = new int[16_384];
+        for (int index = 0; index < values.length; index++) {
+            values[index] = ((index * 31) ^ (index >>> 3)) & (values.length - 1);
+        }
+        int[] expected = values.clone();
+        Arrays.sort(expected);
+
+        SortMetrics metrics = new SortMetrics();
+        PdqSort.sort(values, false, metrics);
+
+        assertTrue("probe must exercise heap fallback", metrics.heapFallbackCount() > 0);
+        assertArrayEquals(expected, values, "pdqsort heap fallback result");
     }
 
     private static void assertMatchesArraysSort(int[] input, String description) {

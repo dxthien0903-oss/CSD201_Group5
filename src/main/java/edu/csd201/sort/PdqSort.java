@@ -44,7 +44,7 @@ public final class PdqSort {
 
         while (high - low >= INSERTION_SORT_THRESHOLD) {
             if (badPartitionBudget == 0) {
-                heapSort(values, low, high);
+                HeapSort.sortSubsegment(values, low, high);
                 metrics.recordHeapFallback();
                 return;
             }
@@ -180,31 +180,6 @@ public final class PdqSort {
                 destination--;
             }
             values[destination] = value;
-        }
-    }
-
-    private static void heapSort(int[] values, int low, int high) {
-        int size = high - low;
-        for (int root = size / 2 - 1; root >= 0; root--) {
-            siftDown(values, low, root, size);
-        }
-        for (int end = size - 1; end > 0; end--) {
-            swap(values, low, low + end);
-            siftDown(values, low, 0, end);
-        }
-    }
-
-    private static void siftDown(int[] values, int offset, int root, int size) {
-        while (root * 2 + 1 < size) {
-            int child = root * 2 + 1;
-            if (child + 1 < size && values[offset + child] < values[offset + child + 1]) {
-                child++;
-            }
-            if (values[offset + root] >= values[offset + child]) {
-                return;
-            }
-            swap(values, offset + root, offset + child);
-            root = child;
         }
     }
 
