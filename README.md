@@ -13,12 +13,12 @@ Dự án nghiên cứu thực nghiệm, cài đặt từ đầu và đánh giá 
 
 | Thành viên | Họ và tên | Hạng mục phụ trách chính |
 |:---:|---|---|
-| **TV1** | **Võ Hồng Phúc** | Cài đặt `QuickSort` (Hoare + Median-of-Three), sinh dữ liệu chuẩn `D1`/`D2`, kiểm thử `QuickSortTest` & `KillerAdversaryTest`, điều phối thực nghiệm RQ1 |
+| **TV1** | **Trần Văn Phúc** | Cài đặt `QuickSort` (Hoare + Median-of-Three), sinh dữ liệu chuẩn `D1`/`D2`, kiểm thử `QuickSortTest` & `KillerAdversaryTest`, điều phối thực nghiệm RQ1 |
 | **TV2** | **Lương Đức Duy** | Cài đặt `MergeSort`, sinh dữ liệu `D3`, điều phối `Benchmark` tổng hợp cho RQ1 & RQ2 |
 | **TV3** | **Trần Minh Quân** | Cài đặt `HeapSort`, sinh dữ liệu `D4`, phân tích giới hạn bộ nhớ tại chỗ $O(1)$ |
 | **TV4** | **Đặng Xuân Thiện** | Cài đặt `RadixSort` (LSD base 256), sinh dữ liệu `D5`, xây dựng `MeasureRunner` / `MeasureWorker` cô lập tiến trình JVM |
 | **TV5** | **Nguyễn Quốc Bảo** | Cài đặt `PdqSort` (Pattern-Defeating Quicksort), thực nghiệm RQ4 đối sánh với QuickSort và HeapSort |
-| **TV6** | **Lê Hoàng Khang** | Kiểm chứng độc lập độ đúng đắn, tổng hợp biểu đồ thực nghiệm và biên찬 báo cáo học thuật |
+| **TV6** | **Lê Hoàng Khang** | Kiểm chứng độc lập độ đúng đắn, tổng hợp biểu đồ thực nghiệm và biên soạn báo cáo học thuật |
 
 ---
 

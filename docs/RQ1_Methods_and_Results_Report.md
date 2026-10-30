@@ -1,6 +1,6 @@
 # BÁO CÁO PHƯƠNG PHÁP VÀ KẾT QUẢ THỰC NGHIỆM — RQ1 (SCALABILITY BENCHMARK)
 
-> **Nhóm thực hiện**: Cặp 1 — TV1 (Nguyễn Văn Phúc) & TV2 (Lương Đức Duy)  
+> **Nhóm thực hiện**: Cặp 1 — TV1 (Trần Văn Phúc) & TV2 (Lương Đức Duy)  
 > **Học phần**: CSD201 — Data Structures and Algorithms  
 > **Đề tài**: So sánh các thuật toán sắp xếp kinh điển và Pattern-defeating Quicksort (pdqsort)  
 > **Phạm vi báo cáo**: Câu hỏi nghiên cứu 1 (RQ1) — Khả năng mở rộng theo kích thước dữ liệu $N$.  
