@@ -44,6 +44,7 @@ CSD201_Group5/
 │   │   └── ExperimentRunner.java            # Runner kiểm thử ngẫu nhiên và đo đạc RQ3
 │   └── test/java/edu/csd201/sort/
 │       ├── QuickSortTest.java               # [TV1] 42 ca kiểm thử toàn diện + 46.233 hoán vị
+│       ├── KillerAdversaryTest.java         # [TV1] 266 ca kiểm thử dữ liệu đối kháng & trường hợp xấu
 │       ├── RadixSortTest.java               # [TV4] 1.043 ca kiểm thử giá trị biên và cơ số
 │       └── Datasets.java                    # Bộ fixture kiểm thử độc lập
 │
@@ -56,6 +57,7 @@ CSD201_Group5/
 │   ├── benchmark.csv                        # Kết quả benchmark toàn diện
 │   ├── rq1_benchmark.csv                    # Kết quả RQ1 (Scalability trên D1)
 │   ├── rq2_benchmark.csv                    # Kết quả RQ2 (Phân phối dữ liệu D1–D5)
+│   ├── quick_sort_test_log.txt              # [TV1] Log xác nhận 42 nhóm test ĐẠT
 │   └── charts/                              # Biểu đồ phân tích thời gian và bộ nhớ phụ
 │
 └── tv4/                                     # HỒ SƠ BÀN GIAO CỦA THÀNH VIÊN 4
@@ -80,12 +82,16 @@ mvn clean compile
 
 ### 3.2. Chạy kiểm thử tự động toàn bộ thuật toán
 
-#### Kiểm thử QuickSort (TV1) — 42 nhóm ca kiểm thử + 46.233 hoán vị:
+#### Kiểm thử QuickSort (TV1) — 42 nhóm ca kiểm thử + 46.233 hoán vị + Dữ liệu đối kháng:
 ```powershell
-# Chạy từ mã nguồn đã chuẩn hóa trong root:
+# 1. Chạy từ mã nguồn đã chuẩn hóa và xuất log kiểm thử:
 javac -encoding UTF-8 -d target/classes src/main/java/edu/csd201/sort/*.java
 javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/edu/csd201/sort/QuickSortTest.java
-java -cp "target/classes;target/test-classes" edu.csd201.sort.QuickSortTest
+java -cp "target/classes;target/test-classes" edu.csd201.sort.QuickSortTest --log=results/quick_sort_test_log.txt
+
+# 2. Chạy kiểm thử dữ liệu đối kháng (Killer Adversary - 266 ca kiểm thử):
+javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/edu/csd201/sort/KillerAdversaryTest.java
+java -cp "target/classes;target/test-classes" edu.csd201.sort.KillerAdversaryTest
 ```
 
 #### Kiểm thử RadixSort (TV4) — 1.043 ca kiểm thử:
