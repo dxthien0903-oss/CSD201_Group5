@@ -5,9 +5,9 @@ import java.util.Objects;
 
 /**
  * Top-down Merge Sort cho int[] với tracking metrics:
- *   - số phép so sánh (comparisons)
- *   - số phép gán/di chuyển (assignments)
- *   - bộ nhớ phụ cực đại dùng thêm (extraMemoryBytes)
+ * - số phép so sánh (comparisons)
+ * - số phép gán/di chuyển (assignments)
+ * - bộ nhớ phụ cực đại dùng thêm (extraMemoryBytes)
  *
  * Tính đúng đắn được kiểm tra qua {@link #verify(int[])} so với Arrays.sort.
  */
@@ -28,25 +28,48 @@ public final class MergeSort {
         private long comparisons;
         private long assignments;
         private long extraMemoryBytes; // peak phụ trợ (temp array)
-        private int  maxDepth;         // chiều sâu đệ quy cực đại (chỉ có ở lượt count)
+        private int maxDepth; // chiều sâu đệ quy cực đại (chỉ có ở lượt count)
 
         // --- mutators (package-private) ---
-        void addComparison()                   { comparisons++; }
-        void addAssignment()                   { assignments++; }
-        void setExtraMemory(long bytes)        { extraMemoryBytes = bytes; }
-        void updateDepth(int depth)            { if (depth > maxDepth) maxDepth = depth; }
+        void addComparison() {
+            comparisons++;
+        }
+
+        void addAssignment() {
+            assignments++;
+        }
+
+        void setExtraMemory(long bytes) {
+            extraMemoryBytes = bytes;
+        }
+
+        void updateDepth(int depth) {
+            if (depth > maxDepth)
+                maxDepth = depth;
+        }
 
         // --- accessors ---
-        public long comparisons()              { return comparisons; }
-        public long assignments()              { return assignments; }
+        public long comparisons() {
+            return comparisons;
+        }
+
+        public long assignments() {
+            return assignments;
+        }
+
         /** Số byte của mảng phụ được cấp phát (= n * 4 byte). */
-        public long extraMemoryBytes()         { return extraMemoryBytes; }
+        public long extraMemoryBytes() {
+            return extraMemoryBytes;
+        }
+
         /**
          * Chiều sâu đệ quy cực đại (bắt đầu từ 1).
          * Chỉ có ý nghĩa sau khi gọi {@link MergeSort#sortCounted}.
          * Trong lượt đo thời gian ({@link MergeSort#sort}), giá trị này = 0.
          */
-        public int maxDepth()                  { return maxDepth; }
+        public int maxDepth() {
+            return maxDepth;
+        }
 
         /** Reset về 0 để tái sử dụng object. */
         public void reset() {
@@ -72,7 +95,7 @@ public final class MergeSort {
      * Metrics được ghi vào {@code metrics}.
      */
     public static void sort(int[] arr, MergeMetrics metrics) {
-        Objects.requireNonNull(arr,     "arr");
+        Objects.requireNonNull(arr, "arr");
         Objects.requireNonNull(metrics, "metrics");
         if (arr.length < 2) {
             return; // 0 hoặc 1 phần tử: đã sắp xếp
@@ -83,25 +106,56 @@ public final class MergeSort {
         mergeSort(arr, temp, 0, arr.length - 1, metrics);
     }
 
-    /** Tiện lợi – không cần truyền metrics. */
+    /**
+     * Bản ĐO THỜI GIAN: không có bất kỳ bộ đếm nào trong vòng lặp.
+     * Cùng thuật toán top-down, một mảng phụ N cấp phát đúng một lần, không bỏ qua
+     * bước trộn.
+     */
     public static void sort(int[] arr) {
-        sort(arr, new MergeMetrics());
+        Objects.requireNonNull(arr, "arr");
+        if (arr.length < 2) {
+            return;
+        }
+        int[] temp = new int[arr.length];
+        mergeSortPlain(arr, temp, 0, arr.length - 1);
+    }
+
+    private static void mergeSortPlain(int[] arr, int[] temp, int left, int right) {
+        if (left >= right) {
+            return;
+        }
+        int mid = left + (right - left) / 2;
+        mergeSortPlain(arr, temp, left, mid);
+        mergeSortPlain(arr, temp, mid + 1, right);
+        System.arraycopy(arr, left, temp, left, right - left + 1);
+        int i = left, j = mid + 1, k = left;
+        while (i <= mid && j <= right) {
+            arr[k++] = (temp[i] <= temp[j]) ? temp[i++] : temp[j++];
+        }
+        while (i <= mid) {
+            arr[k++] = temp[i++];
+        }
+        while (j <= right) {
+            arr[k++] = temp[j++];
+        }
     }
 
     /**
      * Chế độ đếm (count mode) – chạy riêng, KHÔNG dùng để đo thời gian.
      *
-     * <p>Đếm {@code comparisons}, {@code assignments}, {@code extraMemoryBytes}
+     * <p>
+     * Đếm {@code comparisons}, {@code assignments}, {@code extraMemoryBytes}
      * và {@code maxDepth} (chiều sâu đệ quy cực đại).
      *
-     * <p><b>Quy ước nhóm:</b> lượt {@code --count} phải tách biệt hoàn toàn
+     * <p>
+     * <b>Quy ước nhóm:</b> lượt {@code --count} phải tách biệt hoàn toàn
      * với lượt đo thời gian để không nhiễu kết quả của nhau.
      *
      * @param arr     mảng cần sắp xếp (sẽ bị thay đổi tại chỗ)
      * @param metrics đối tượng ghi metrics; sau khi trả về, {@code maxDepth()} > 0
      */
     public static void sortCounted(int[] arr, MergeMetrics metrics) {
-        Objects.requireNonNull(arr,     "arr");
+        Objects.requireNonNull(arr, "arr");
         Objects.requireNonNull(metrics, "metrics");
         if (arr.length < 2) {
             metrics.setExtraMemory((long) arr.length * Integer.BYTES);
@@ -120,7 +174,7 @@ public final class MergeSort {
      */
     public static boolean verify(int[] input) {
         int[] expected = input.clone();
-        int[] actual   = input.clone();
+        int[] actual = input.clone();
         Arrays.sort(expected);
         sort(actual);
         return Arrays.equals(expected, actual);
@@ -139,12 +193,12 @@ public final class MergeSort {
      * @param right chỉ số cuối đoạn (inclusive)
      */
     private static void mergeSort(int[] arr, int[] temp,
-                                  int left, int right, MergeMetrics m) {
+            int left, int right, MergeMetrics m) {
         if (left >= right) {
             return; // đoạn 1 phần tử
         }
         int mid = left + (right - left) / 2;
-        mergeSort(arr, temp, left,    mid,   m);
+        mergeSort(arr, temp, left, mid, m);
         mergeSort(arr, temp, mid + 1, right, m);
         merge(arr, temp, left, mid, right, m);
     }
@@ -152,33 +206,35 @@ public final class MergeSort {
     /**
      * Trộn hai nửa đã được sắp xếp [left..mid] và [mid+1..right].
      *
-     * <p>Counting conventions:
+     * <p>
+     * Counting conventions:
      * <ul>
-     *   <li><b>assignment</b>: mỗi lần copy một phần tử (cả copy sang temp lẫn copy về arr).
-     *   <li><b>comparison</b>: mỗi lần so sánh temp[i] với temp[j].
+     * <li><b>assignment</b>: mỗi lần copy một phần tử (cả copy sang temp lẫn copy
+     * về arr).
+     * <li><b>comparison</b>: mỗi lần so sánh temp[i] với temp[j].
      * </ul>
      */
     private static void merge(int[] arr, int[] temp,
-                               int left, int mid, int right, MergeMetrics m) {
+            int left, int mid, int right, MergeMetrics m) {
         // Bước 1 – Sao chép đoạn [left..right] sang temp
         for (int k = left; k <= right; k++) {
             temp[k] = arr[k];
             m.addAssignment();
         }
 
-        int i = left;       // con trỏ nửa trái (trong temp)
-        int j = mid + 1;    // con trỏ nửa phải (trong temp)
-        int k = left;       // vị trí ghi vào arr
+        int i = left; // con trỏ nửa trái (trong temp)
+        int j = mid + 1; // con trỏ nửa phải (trong temp)
+        int k = left; // vị trí ghi vào arr
 
         // Bước 2 – Trộn
         while (i <= mid && j <= right) {
-            m.addComparison();              // so sánh temp[i] vs temp[j]
+            m.addComparison(); // so sánh temp[i] vs temp[j]
             if (temp[i] <= temp[j]) {
                 arr[k++] = temp[i++];
             } else {
                 arr[k++] = temp[j++];
             }
-            m.addAssignment();              // ghi kết quả vào arr
+            m.addAssignment(); // ghi kết quả vào arr
         }
 
         // Bước 3 – Copy phần còn lại của nửa trái
@@ -201,22 +257,24 @@ public final class MergeSort {
     /**
      * Đệ quy top-down với tracking chiều sâu – dùng trong lượt count.
      *
-     * <p>Cách đo bộ nhớ phụ: {@code extraMemoryBytes = N × 4 byte}
+     * <p>
+     * Cách đo bộ nhớ phụ: {@code extraMemoryBytes = N × 4 byte}
      * (mảng temp kiểu int[], cấp phát 1 lần duy nhất trong {@link #sortCounted}).
      *
-     * <p>Cách đo max_depth: bất đầu từ {@code depth=1}, mỗi lần gọi đệ quy
+     * <p>
+     * Cách đo max_depth: bất đầu từ {@code depth=1}, mỗi lần gọi đệ quy
      * thêm 1. max_depth = {@code ⌈log₂(N)⌉} với top-down merge sort.
      *
      * @param depth độ sâu hiện tại (bắt đầu từ 1 ở lần gọi đầu tiên)
      */
     private static void mergeSortCounted(int[] arr, int[] temp,
-                                          int left, int right, MergeMetrics m, int depth) {
+            int left, int right, MergeMetrics m, int depth) {
         m.updateDepth(depth);
         if (left >= right) {
             return;
         }
         int mid = left + (right - left) / 2;
-        mergeSortCounted(arr, temp, left,    mid,   m, depth + 1);
+        mergeSortCounted(arr, temp, left, mid, m, depth + 1);
         mergeSortCounted(arr, temp, mid + 1, right, m, depth + 1);
         merge(arr, temp, left, mid, right, m);
     }

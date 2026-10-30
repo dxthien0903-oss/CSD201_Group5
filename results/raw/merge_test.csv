@@ -1,0 +1,4 @@
+run_id,rq,algorithm,variant,dataset,n,params,seed,input_sha256,generator_version,repeat,elapsed_ms,heap_before_bytes,heap_peak_bytes,ops_count,output_check,status,xmx,machine_id,git_commit,array_reads,array_writes,max_depth,k,jdk,os,cpu_cores,ram_mb,jvm_flags
+M0001,RQ1,merge,base,D1,100000,,1,a93ee29a8d31a2523cdf04bbaf79c7f55680d91fe22d2c0cce8e2305a42063ba,gen-1.2,1,13.829,2537904,2537904,,-5208458224592113075,ok,2g,DUY1,5bc9271-dirty,,,,,25.0.4,Windows 11 10.0 amd64,12,16087,-Xmx2g
+M0002,RQ1,merge,base,D3,100000,,1,21adcbee8682110548cd1a6ef48fcb63e9c64e9227385d3c1852b52844f2fb27,gen-1.2,1,5.983,2538128,2538128,,-5208458224592113075,ok,2g,DUY1,5bc9271-dirty,,,,,25.0.4,Windows 11 10.0 amd64,12,16087,-Xmx2g
+M0003,RQ1,merge,base,D1,100000,mode=count,1,a93ee29a8d31a2523cdf04bbaf79c7f55680d91fe22d2c0cce8e2305a42063ba,gen-1.2,1,,2538424,2538424,1536613,-5208458224592113075,ok,2g,DUY1,5bc9271-dirty,,,18,,25.0.4,Windows 11 10.0 amd64,12,16087,-Xmx2g
