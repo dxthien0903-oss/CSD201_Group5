@@ -32,6 +32,7 @@ CSD201_Group5/
 │   ├── Phan_cong_chuan_theo_de_Sorting_pdqsort.xlsx
 │   ├── RQ1_Methods_and_Results_Report.md
 │   ├── RQ1_QuickSort_Report.md
+│   ├── RQ3_Methods_and_Results_Report.md
 │   └── TV1_QuickSort_D1_D2_Technical_Report.md
 ├── results/
 │   ├── benchmark.csv
@@ -39,7 +40,9 @@ CSD201_Group5/
 │   ├── quick_sort_results.csv
 │   ├── rq1_benchmark.csv
 │   ├── rq2_benchmark.csv
-│   └── rq2_full_comparison.csv
+│   ├── rq2_full_comparison.csv
+│   ├── rq3_pdqsort.csv
+│   └── rq3_pdqsort_metrics.csv
 └── src/
     ├── main/java/edu/csd201/sort/
     │   ├── Benchmark.java
@@ -51,9 +54,12 @@ CSD201_Group5/
     │   ├── MergeSort.java
     │   ├── PdqSort.java
     │   ├── QuickSort.java
-    │   └── RadixSort.java
+    │   ├── RadixSort.java
+    │   ├── Rq3Benchmark.java
+    │   └── SortMetrics.java
     └── test/java/edu/csd201/sort/
         ├── KillerAdversaryTest.java
+        ├── PdqSortTest.java
         ├── QuickSortTest.java
         └── RadixTest.java
 ```
@@ -65,10 +71,12 @@ CSD201_Group5/
 | `HeapSort` | `src/main/java/edu/csd201/sort/HeapSort.java` | Heap Sort vun đống nhị phân tại chỗ với bộ nhớ phụ $O(1)$ |
 | `RadixSort` | `src/main/java/edu/csd201/sort/RadixSort.java` | LSD Radix Sort cơ số 256 (8-bit mỗi lượt, 4 lượt chia lô) |
 | `PdqSort` | `src/main/java/edu/csd201/sort/PdqSort.java` | Pattern-Defeating Quicksort kết hợp Insertion Sort, 3-way partition và fallback HeapSort |
+| `SortMetrics` | `src/main/java/edu/csd201/sort/SortMetrics.java` | Thu thập số phép so sánh, partitions, partial insertions, HeapSort fallbacks và độ sâu |
 | `DataGenerator` | `src/main/java/edu/csd201/sort/DataGenerator.java` | Bộ sinh 5 phân phối dữ liệu chuẩn `D1`–`D5` tái lập hoàn toàn theo `seed` |
 | `Benchmark` | `src/main/java/edu/csd201/sort/Benchmark.java` | Trình chạy thực nghiệm RQ1, RQ2 và xuất bảng kết quả tổng hợp |
 | `MeasureRunner` | `src/main/java/edu/csd201/sort/MeasureRunner.java` | Điều phối đo lường chuẩn đề bài bằng tiến trình JVM con độc lập cho mỗi lượt chạy |
 | `ExperimentRunner` | `src/main/java/edu/csd201/sort/ExperimentRunner.java` | Trình chạy kiểm thử ngẫu nhiên (`D1`–`D5`) và đếm chỉ số (`--count`) cho `PdqSort` |
+| `Rq3Benchmark` | `src/main/java/edu/csd201/sort/Rq3Benchmark.java` | Benchmark tái lập cho QuickSort, bốn cấu hình pdqsort và `Arrays.sort` |
 
 ---
 
@@ -143,6 +151,18 @@ java -cp "target/classes;target/test-classes" edu.csd201.sort.QuickSortTest --lo
 java -cp "target/classes;target/test-classes" edu.csd201.sort.KillerAdversaryTest
 ```
 
+### Kiểm thử pdqsort TV6
+```bash
+java -cp target/classes edu.csd201.sort.ExperimentRunner randomized-test 20261016 10000 results/randomized-test.log
+```
+
+Lệnh kiểm tra 10.000 mảng ngẫu nhiên và các ca biên/fallback với `Arrays.sort()` trên
+các cấu hình `full`, `noA`, `noB` và `noA+noB`. Kiểm thử `PdqSortTest` độc lập:
+```bash
+javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/edu/csd201/sort/PdqSortTest.java
+java -cp "target/classes;target/test-classes" edu.csd201.sort.PdqSortTest
+```
+
 ### Tóm tắt độ phủ kiểm thử
 - **`QuickSortTest` (7 nhóm JUnit 5):** Kiểm thử 5 ca cố định của đề và biên cực trị, hợp đồng sắp xếp đoạn con `sort(a, lo, hi)`, mảng kích thước lớn $N=100.000$ (bằng nhau/tăng/giảm/cực trị), đối chiếu `Arrays.sort` trên 1.000 mảng ngẫu nhiên toàn dải + 200 mảng trùng khóa + 1.000 mảng ngẫu nhiên trải đều đủ 5 họ `D1`–`D5`, kiểm tra độ sâu đệ quy `maxDepth <= 64`, vét cạn toàn bộ $3.280$ mảng tam phân độ dài $0..7$ cùng $46.233$ hoán vị độ dài $1..8$, và kiểm tra tính tái lập của `DataGenerator` (`D1`/`D2`).
 - **`KillerAdversaryTest` (5 nhóm JUnit 5):** Kiểm thử sức chịu đựng của `QuickSort` trước 14 họ dữ liệu có cấu trúc (sawtooth, organ-pipe, median-of-three triples), 250 mảng ngẫu nhiên, thuật toán leo đồi (hill-climbing adversary), và dãy đối kháng **Musser / McIlroy Median-of-Three Killer** tại $N = 10^4, 10^5, 10^6$ đối sánh trực tiếp giữa `QuickSort` và `PdqSort`.
@@ -207,6 +227,52 @@ Số liệu thời gian thực thi (ms) của các thuật toán trên 5 họ ph
   - **Hiệu quả Cơ chế A (`PdqSort Full` vs `noA`):** Khi tắt Cơ chế A (`noA`), thời gian chạy trên dữ liệu đã sắp (`D2`) và giảm dần (`D4`) tăng vọt từ $15.66\text{ ms} \to 36.98\text{ ms}$ và $13.12\text{ ms} \to 31.65\text{ ms}$, chứng minh cơ chế phát hiện thứ tự sớm giúp tiết kiệm hơn $55\%$ thời gian.
   - **Hiệu quả Cơ chế B (`PdqSort Full` vs `noB`):** Trên dữ liệu trùng lặp cao (`D5`), khi tắt `partitionLeft` (`noB`), toàn bộ các phần tử bằng chốt tiếp tục bị đẩy vào nhánh đệ quy bên phải thay vì được cô lập, làm tăng số phép so sánh khóa.
   - **Chống suy biến đối kháng (Musser Median-of-Three Killer):** Trước dãy đối kháng cố tình đánh lừa chốt Median-of-Three của `QuickSort` cổ điển, `PdqSort` đếm số lần phân hoạch lệch (`badAllowed = log2(N)`), tự động xáo trộn mẫu ngẫu nhiên và chuyển sang `HeapSort` để giữ vững độ phức tạp $O(N \log N)$ trong mọi trường hợp.
+
+#### Benchmark tái lập TV6: full, noA, noB và noA+noB
+
+Phần dưới đây là benchmark RQ3 riêng của TV6, bổ sung cho bảng tổng hợp phía trên.
+`Rq3Benchmark` chạy `QuickSort` giáo trình, pdqsort với bốn cấu hình và
+`Arrays.sort()` trên cùng dữ liệu đầu vào:
+
+- Kích thước `N = 1.000.000` và `10.000.000`.
+- `D1` và `D3`: ba seed `20261016`, `20261017`, `20261018`; `D2` và `D4`: seed `20261016`.
+- `D5`: `K = 1000`, `10`, `2`, mỗi giá trị có ba seed trên.
+- Hai warm-up và ba lượt đo cho mỗi thuật toán/tổ hợp dữ liệu.
+
+Runner xác thực đầu ra với oracle `Arrays.sort()` trước khi ghi CSV; các metrics
+được thu ở lượt riêng ngoài thời gian đo. Hai file CSV đã lưu là
+[`rq3_pdqsort.csv`](results/rq3_pdqsort.csv) (bản trước khi thêm comparison
+counter) và [`rq3_pdqsort_metrics.csv`](results/rq3_pdqsort_metrics.csv) (bản
+có comparison counts).
+
+CSV metrics có 612 dòng: 17 tổ hợp dataset/seed × 2 kích thước × 6 thuật toán ×
+3 lượt đo. Kiểm tra dữ liệu cho thấy tất cả 612 dòng có `status=PASS` và checksum
+đầu ra. Bảng dưới đây là trung vị thời gian (ms) qua 51 lượt cho mỗi thuật toán
+và kích thước, gộp 17 tổ hợp dataset/seed; đây không phải trung vị riêng từng
+phân phối:
+
+| Thuật toán / cấu hình | N = 1.000.000 | N = 10.000.000 |
+|---|---:|---:|
+| QuickSort (`hoare-med3`) | 38.235 | 442.948 |
+| pdqsort `full` | 17.211 | 210.520 |
+| pdqsort `noA` | 24.354 | 269.420 |
+| pdqsort `noB` | 51.456 | 626.545 |
+| pdqsort `noA+noB` | 57.376 | 730.871 |
+| `Arrays.sort()` | 12.690 | 172.348 |
+
+Đây là kết quả của workload và môi trường ghi trong CSV, không khẳng định thứ
+hạng giống nhau trên từng dataset. Xem [báo cáo phương pháp và kết quả RQ3](docs/RQ3_Methods_and_Results_Report.md)
+để biết comparison-count medians và phân tích chi tiết.
+
+Chạy lại ma trận với một **tên file mới** (runner không ghi đè file đã tồn tại):
+```bash
+java -Xmx4g -cp target/classes edu.csd201.sort.Rq3Benchmark --output results/rq3_pdqsort_metrics_rerun.csv
+```
+
+**Giới hạn JDK:** CSV hiện tại được đo trên Java 17.0.12. Đề bài nêu
+`Arrays.sort(int[])` của JDK 8 làm baseline, nhưng dự án đặt compiler release 17;
+việc chấp nhận kết quả JDK 17 thay cho baseline JDK 8 chưa được xác nhận. Vì vậy
+chưa thể khẳng định yêu cầu JDK 8 đã được đáp ứng.
 
 ---
 

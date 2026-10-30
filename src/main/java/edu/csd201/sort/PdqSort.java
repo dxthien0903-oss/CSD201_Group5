@@ -53,7 +53,7 @@ public final class PdqSort {
 
         while (high - low >= INSERTION_SORT_THRESHOLD) {
             if (badPartitionBudget == 0) {
-                heapSort(values, low, high);
+                heapSort(values, low, high, metrics);
                 metrics.recordHeapFallback();
                 return;
             }
@@ -62,8 +62,8 @@ public final class PdqSort {
                 breakPatterns(values, low, high);
                 breakPatternsOnNextPartition = false;
             }
-            int pivot = choosePivot(values, low, high);
-            Partition partition = partitionThreeWay(values, low, high, pivot, mechanismBEnabled);
+            int pivot = choosePivot(values, low, high, metrics);
+            Partition partition = partitionThreeWay(values, low, high, pivot, mechanismBEnabled, metrics);
             metrics.recordPartition();
 
             int leftSize = partition.equalStart - low;
@@ -76,8 +76,8 @@ public final class PdqSort {
             }
 
             if (mechanismAEnabled && balanced && partition.alreadyPartitioned) {
-                if (partialInsertionSort(values, low, partition.equalStart)
-                        && partialInsertionSort(values, partition.equalEnd, high)) {
+                if (partialInsertionSort(values, low, partition.equalStart, metrics)
+                        && partialInsertionSort(values, partition.equalEnd, high, metrics)) {
                     metrics.recordPartialInsertion();
                     return;
                 }
@@ -94,56 +94,70 @@ public final class PdqSort {
             }
         }
 
-        insertionSort(values, low, high);
+        insertionSort(values, low, high, metrics);
     }
 
-    private static int choosePivot(int[] values, int low, int high) {
+    private static int choosePivot(int[] values, int low, int high, SortMetrics metrics) {
         int length = high - low;
         int middle = low + length / 2;
         if (length < NINTHER_THRESHOLD) {
-            return medianIndex(values, low, middle, high - 1);
+            return values[medianIndex(values, low, middle, high - 1, metrics)];
         }
 
         int step = length / 8;
-        int first = medianIndex(values, low, low + step, low + 2 * step);
-        int second = medianIndex(values, middle - step, middle, middle + step);
-        int third = medianIndex(values, high - 1 - 2 * step, high - 1 - step, high - 1);
-        return medianIndex(values, first, second, third);
+        int first = medianIndex(values, low, low + step, low + 2 * step, metrics);
+        int second = medianIndex(values, middle - step, middle, middle + step, metrics);
+        int third = medianIndex(values, high - 1 - 2 * step, high - 1 - step, high - 1, metrics);
+        return values[medianIndex(values, first, second, third, metrics)];
     }
 
-    private static int medianIndex(int[] values, int first, int second, int third) {
+    private static int medianIndex(int[] values, int first, int second, int third, SortMetrics metrics) {
+        metrics.recordComparison();
         if (values[first] < values[second]) {
+            metrics.recordComparison();
             if (values[second] < values[third]) {
                 return second;
             }
+            metrics.recordComparison();
             return values[first] < values[third] ? third : first;
         }
+        metrics.recordComparison();
         if (values[first] < values[third]) {
             return first;
         }
+        metrics.recordComparison();
         return values[second] < values[third] ? third : second;
     }
 
-    private static Partition partitionThreeWay(int[] values, int low, int high, int pivot, boolean mechanismBEnabled) {
+    private static Partition partitionThreeWay(
+            int[] values, int low, int high, int pivot, boolean mechanismBEnabled, SortMetrics metrics) {
         int less = low;
         int current = low;
         int greater = high;
         boolean alreadyPartitioned = true;
         while (current < greater) {
+            metrics.recordComparison();
             if (values[current] < pivot) {
                 alreadyPartitioned &= less == current;
                 swap(values, less++, current++);
-            } else if (values[current] > pivot) {
-                while (current < greater && values[greater - 1] > pivot) {
-                    greater--;
-                }
-                if (current < greater) {
-                    int destination = --greater;
-                    alreadyPartitioned = false;
-                    swap(values, current, destination);
-                }
             } else {
-                current++;
+                metrics.recordComparison();
+                if (values[current] > pivot) {
+                    while (current < greater) {
+                        metrics.recordComparison();
+                        if (values[greater - 1] <= pivot) {
+                            break;
+                        }
+                        greater--;
+                    }
+                    if (current < greater) {
+                        int destination = --greater;
+                        alreadyPartitioned = false;
+                        swap(values, current, destination);
+                    }
+                } else {
+                    current++;
+                }
             }
         }
         if (!mechanismBEnabled) {
@@ -153,12 +167,16 @@ public final class PdqSort {
         return new Partition(less, greater, alreadyPartitioned);
     }
 
-    private static boolean partialInsertionSort(int[] values, int low, int high) {
+    private static boolean partialInsertionSort(int[] values, int low, int high, SortMetrics metrics) {
         int moves = 0;
         for (int index = low + 1; index < high; index++) {
             int value = values[index];
             int destination = index;
-            while (destination > low && value < values[destination - 1]) {
+            while (destination > low) {
+                metrics.recordComparison();
+                if (value >= values[destination - 1]) {
+                    break;
+                }
                 values[destination] = values[destination - 1];
                 destination--;
             }
@@ -184,11 +202,15 @@ public final class PdqSort {
         swap(values, middle, high - 1 - quarter);
     }
 
-    private static void insertionSort(int[] values, int low, int high) {
+    private static void insertionSort(int[] values, int low, int high, SortMetrics metrics) {
         for (int index = low + 1; index < high; index++) {
             int value = values[index];
             int destination = index;
-            while (destination > low && value < values[destination - 1]) {
+            while (destination > low) {
+                metrics.recordComparison();
+                if (value >= values[destination - 1]) {
+                    break;
+                }
                 values[destination] = values[destination - 1];
                 destination--;
             }
@@ -196,23 +218,27 @@ public final class PdqSort {
         }
     }
 
-    private static void heapSort(int[] values, int low, int high) {
+    private static void heapSort(int[] values, int low, int high, SortMetrics metrics) {
         int size = high - low;
         for (int root = size / 2 - 1; root >= 0; root--) {
-            siftDown(values, low, root, size);
+            siftDown(values, low, root, size, metrics);
         }
         for (int end = size - 1; end > 0; end--) {
             swap(values, low, low + end);
-            siftDown(values, low, 0, end);
+            siftDown(values, low, 0, end, metrics);
         }
     }
 
-    private static void siftDown(int[] values, int offset, int root, int size) {
+    private static void siftDown(int[] values, int offset, int root, int size, SortMetrics metrics) {
         while (root * 2 + 1 < size) {
             int child = root * 2 + 1;
-            if (child + 1 < size && values[offset + child] < values[offset + child + 1]) {
-                child++;
+            if (child + 1 < size) {
+                metrics.recordComparison();
+                if (values[offset + child] < values[offset + child + 1]) {
+                    child++;
+                }
             }
+            metrics.recordComparison();
             if (values[offset + root] >= values[offset + child]) {
                 return;
             }
