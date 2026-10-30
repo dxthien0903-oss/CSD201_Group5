@@ -1,147 +1,166 @@
-# CSD201 Group 5 — Sorting Algorithms & pdqsort Benchmark
+# CSD201 Group 5 — Nghiên Cứu Thực Nghiệm Các Thuật Toán Sắp Xếp & PDQSort
 
-> **Đề tài 1 (CSD201 - FA26):** Nghiên cứu, cài đặt và đánh giá thực nghiệm so sánh hiệu năng giữa **Quick Sort**, **Merge Sort**, **Heap Sort**, **Radix Sort** và **pdqsort** (Pattern-defeating Quicksort) trên các phân phối dữ liệu chuẩn $D_1 - D_5$.
+[![Java](https://img.shields.io/badge/Java-17%2B-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Maven](https://img.shields.io/badge/Maven-3.8%2B-C71A36?style=for-the-badge&logo=apache-maven&logoColor=white)](https://maven.apache.org/)
+[![JUnit 5](https://img.shields.io/badge/JUnit-5.10.2-25A162?style=for-the-badge&logo=junit5&logoColor=white)](https://junit.org/junit5/)
+[![Benchmark](https://img.shields.io/badge/Benchmark-RQ1%20%7C%20RQ2%20%7C%20RQ4-0A66C2?style=for-the-badge)](results/)
 
-[![Java](https://img.shields.io/badge/Java-17%2B-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
-[![Maven](https://img.shields.io/badge/Build-Maven-C71A36?logo=apachemaven&logoColor=white)](https://maven.apache.org/)
-[![Platform](https://img.shields.io/badge/Platform-Cross--Platform-blue)]()
-
----
-
-## 1. Thành viên nhóm & Phân công nhiệm vụ
-
-| TV | Vai trò / Cặp RQ | Thuật toán sở hữu | Trách nhiệm dữ liệu & hạ tầng | Đầu ra chính |
-| :---: | :---: | :--- | :--- | :--- |
-| **TV1** | Cặp 1 — Chủ trì RQ1 | **Quick Sort** (Hoare + median-of-three) | Generator $D_1$ (Random), $D_2$ (Sorted) | `QuickSort.java`, test suite 46k permutations, CSV RQ1 |
-| **TV2** | Cặp 1 — Chủ trì RQ1 | **Merge Sort** (Top-down, 1 temp array) | Generator $D_3$ (Nearly sorted), $D_4$ (Reverse) | `MergeSort.java`, `DataGenerator.java`, biểu đồ RQ1 |
-| **TV3** | Cặp 2 — Chủ trì RQ2 | **Heap Sort** (Max-heap in-place) | Core Benchmark runner, `sort_subsegment` | `HeapSort.java`, framework đo bộ nhớ / thời gian |
-| **TV4** | Cặp 2 — Chủ trì RQ2 | **Radix Sort** (LSD base 256, 4 passes) | Generator $D_5$ (Many duplicates: $K=1000, 10, 2$) | `RadixSort.java`, đếm $8N$ đọc / $4N$ ghi, CSV RQ2 |
-| **TV5** | Cặp 3 — Chủ trì RQ3 | **pdqsort** (full & `noA`) | Tích hợp HeapSort fallback, randomized test | `PdqSort.java`, `SortMetrics.java`, phân tích cơ chế A |
-| **TV6** | Cặp 3 — Chủ trì RQ3 | **pdqsort** (`noB`) & CLI | Thư viện baseline `Arrays.sort`, killer adversary | `ExperimentRunner.java`, dữ liệu đối kháng, phân tích cơ chế B |
+Dự án nghiên cứu thực nghiệm, cài đặt từ đầu và đánh giá hiệu năng các thuật toán sắp xếp nền tảng (**Quick Sort**, **Merge Sort**, **Heap Sort**, **Radix Sort LSD**) cùng thuật toán lai hiện đại **Pattern-Defeating Quicksort (PDQSort)** trên mảng số nguyên 32-bit không âm trong khoảng `[0, 2^31 - 1]`.
 
 ---
 
-## 2. Cấu trúc thư mục chuẩn mực (Maven Standard Layout)
+## 👥 Phân Công Nhóm (Group 5)
 
-Repository được tổ chức theo chuẩn quốc tế của Apache Maven, tập trung toàn bộ mã nguồn sản phẩm trong `src/main/java` và mã kiểm thử trong `src/test/java`, đồng thời bảo toàn các tài liệu và hồ sơ audit độc lập của từng thành viên:
+| Thành viên | Họ và tên | Hạng mục phụ trách chính |
+|:---:|---|---|
+| **TV1** | **Võ Hồng Phúc** | Cài đặt `QuickSort` (Hoare + Median-of-Three), sinh dữ liệu chuẩn `D1`/`D2`, kiểm thử `QuickSortTest` & `KillerAdversaryTest`, điều phối thực nghiệm RQ1 |
+| **TV2** | **Lương Đức Duy** | Cài đặt `MergeSort`, sinh dữ liệu `D3`, điều phối `Benchmark` tổng hợp cho RQ1 & RQ2 |
+| **TV3** | **Trần Minh Quân** | Cài đặt `HeapSort`, sinh dữ liệu `D4`, phân tích giới hạn bộ nhớ tại chỗ $O(1)$ |
+| **TV4** | **Đặng Xuân Thiện** | Cài đặt `RadixSort` (LSD base 256), sinh dữ liệu `D5`, xây dựng `MeasureRunner` / `MeasureWorker` cô lập tiến trình JVM |
+| **TV5** | **Nguyễn Quốc Bảo** | Cài đặt `PdqSort` (Pattern-Defeating Quicksort), thực nghiệm RQ4 đối sánh với QuickSort và HeapSort |
+| **TV6** | **Lê Hoàng Khang** | Kiểm chứng độc lập độ đúng đắn, tổng hợp biểu đồ thực nghiệm và biên찬 báo cáo học thuật |
+
+---
+
+## 🗺️ Cấu Trúc Dự Án
 
 ```text
 CSD201_Group5/
-├── pom.xml                                  # Cấu hình dự án Maven chuẩn (Java 17, UTF-8)
-├── README.md                                # Hướng dẫn dự án và tổng quan kiến trúc
-├── .gitignore                               # Quy tắc loại trừ tệp nhị phân và artifact cục bộ
-│
-├── src/                                     # MÃ NGUỒN CHÍNH THỨC CỦA DỰ ÁN
-│   ├── main/java/edu/csd201/sort/
-│   │   ├── QuickSort.java                   # [TV1] Hoare partition, median-of-three pivot
-│   │   ├── MergeSort.java                   # [TV2] Top-down merge sort, 1 temp array O(N)
-│   │   ├── HeapSort.java                    # [TV3] Max-heap in-place, bottom-up build
-│   │   ├── RadixSort.java                   # [TV4] LSD base 256, 4 passes cho int 32-bit
-│   │   ├── PdqSort.java                     # [TV5/6] Pattern-defeating quicksort, cơ chế A/B/fallback
-│   │   ├── SortMetrics.java                 # Thống nhất metrics: comparisons, assignments, reads, writes, maxDepth
-│   │   ├── DataGenerator.java               # Bộ sinh dữ liệu chính thức D1–D5
-│   │   ├── Benchmark.java                   # Runner chính đo thời gian và metrics cho cả 5 thuật toán
-│   │   └── ExperimentRunner.java            # Runner kiểm thử ngẫu nhiên và đo đạc RQ3
-│   └── test/java/edu/csd201/sort/
-│       ├── QuickSortTest.java               # [TV1] 42 ca kiểm thử toàn diện + 46.233 hoán vị
-│       ├── KillerAdversaryTest.java         # [TV1] 266 ca kiểm thử dữ liệu đối kháng & trường hợp xấu
-│       ├── RadixSortTest.java               # [TV4] 1.043 ca kiểm thử giá trị biên và cơ số
-│       └── Datasets.java                    # Bộ fixture kiểm thử độc lập
-│
-├── docs/                                    # TÀI LIỆU DỰ ÁN & BÁO CÁO NGHIÊN CỨU
-│   ├── 261014-de-tai-1-sorting-pdqsort-csd201-fa26.docx  # Đề tài chính thức từ giảng viên
-│   ├── Phan_cong_chuan_theo_de_Sorting_pdqsort.xlsx      # Bảng phân công ma trận công việc 6 TV
-│   └── RQ1_Methods_and_Results_Report.md                 # Báo cáo phương pháp & kết quả thực nghiệm RQ1
-│
-├── results/                                 # KẾT QUẢ THỰC NGHIỆM CHÍNH THỨC
-│   ├── benchmark.csv                        # Kết quả benchmark toàn diện
-│   ├── rq1_benchmark.csv                    # Kết quả RQ1 (Scalability trên D1)
-│   ├── rq2_benchmark.csv                    # Kết quả RQ2 (Phân phối dữ liệu D1–D5)
-│   ├── quick_sort_test_log.txt              # [TV1] Log xác nhận 42 nhóm test ĐẠT
-│   └── charts/                              # Biểu đồ phân tích thời gian và bộ nhớ phụ
-│
-└── tv4/                                     # HỒ SƠ BÀN GIAO CỦA THÀNH VIÊN 4
-    ├── README.md                            # Đặc tả kỹ thuật RadixSort TV4
-    ├── bench/plan_radix.csv                 # Kế hoạch đo thực nghiệm RadixSort
-    └── results/radix_test_log.txt           # Test log xác nhận 1.043 kiểm tra ĐẠT
+├── pom.xml
+├── README.md
+├── docs/
+│   ├── Phan_cong_chuan_theo_de_Sorting_pdqsort.xlsx
+│   ├── RQ1_QuickSort_Report.md
+│   └── TV1_QuickSort_D1_D2_Technical_Report.md
+├── results/
+│   ├── benchmark.csv
+│   ├── quick_sort_results.csv
+│   ├── rq1_benchmark.csv
+│   └── rq2_benchmark.csv
+└── src/
+    ├── main/java/edu/csd201/sort/
+    │   ├── Benchmark.java
+    │   ├── DataGenerator.java
+    │   ├── ExperimentRunner.java
+    │   ├── HeapSort.java
+    │   ├── MeasureRunner.java
+    │   ├── MeasureWorker.java
+    │   ├── MergeSort.java
+    │   ├── PdqSort.java
+    │   ├── QuickSort.java
+    │   └── RadixSort.java
+    └── test/java/edu/csd201/sort/
+        ├── KillerAdversaryTest.java
+        ├── QuickSortTest.java
+        └── RadixTest.java
+```
+
+| Thành phần | Đường dẫn | Vai trò kỹ thuật |
+|---|---|---|
+| `QuickSort` | `src/main/java/edu/csd201/sort/QuickSort.java` | Quick Sort phân hoạch Hoare kết hợp chọn chốt Median-of-Three và khử đệ quy đuôi |
+| `MergeSort` | `src/main/java/edu/csd201/sort/MergeSort.java` | Merge Sort chia để trị ổn định sử dụng mảng phụ $O(N)$ |
+| `HeapSort` | `src/main/java/edu/csd201/sort/HeapSort.java` | Heap Sort vun đống nhị phân tại chỗ với bộ nhớ phụ $O(1)$ |
+| `RadixSort` | `src/main/java/edu/csd201/sort/RadixSort.java` | LSD Radix Sort cơ số 256 (8-bit mỗi lượt, 4 lượt chia lô) |
+| `PdqSort` | `src/main/java/edu/csd201/sort/PdqSort.java` | Pattern-Defeating Quicksort kết hợp Insertion Sort, 3-way partition và fallback HeapSort |
+| `DataGenerator` | `src/main/java/edu/csd201/sort/DataGenerator.java` | Bộ sinh 5 phân phối dữ liệu chuẩn `D1`–`D5` tái lập hoàn toàn theo `seed` |
+| `Benchmark` | `src/main/java/edu/csd201/sort/Benchmark.java` | Trình chạy thực nghiệm RQ1, RQ2 và xuất bảng kết quả tổng hợp |
+| `MeasureRunner` | `src/main/java/edu/csd201/sort/MeasureRunner.java` | Điều phối đo lường chuẩn đề bài bằng tiến trình JVM con độc lập cho mỗi lượt chạy |
+| `ExperimentRunner` | `src/main/java/edu/csd201/sort/ExperimentRunner.java` | Trình chạy thực nghiệm chuyên biệt cho `QuickSort` xuất `results/quick_sort_results.csv` |
+
+---
+
+## ✨ Thiết Kế Thuật Toán & Phương Pháp Đo Lường
+
+### 1. Năm phân phối dữ liệu chuẩn (`D1` – `D5`)
+- **D1 (Uniform Random):** $N$ số nguyên 32-bit không âm phân phối đều trên $[0, 2^{31}-1]$, sinh bằng `SplittableRandom(seed)` cùng phép mặt nạ bit `& 0x7FFFFFFF`.
+- **D2 (Sorted Ascending):** Bản sao của `D1` đã sắp xếp không giảm.
+- **D3 (Nearly Sorted):** Bản sao của `D2` thực hiện hoán đổi ngẫu nhiên $\lfloor N / 1000 \rfloor$ cặp vị trí.
+- **D4 (Reverse Sorted):** Bản sao của `D2` đảo ngược thứ tự giảm dần.
+- **D5 (Many Duplicates):** Sinh $K$ khóa phân biệt từ `seed`, mỗi phần tử chọn ngẫu nhiên đều trong $K$ khóa ($K \in \{1000, 10, 2, 1\}$).
+
+### 2. Nguyên tắc tách biệt chế độ đo (Two-Mode Measurement)
+- **Timing Mode (`sort`):** Thực thi thuật toán thuần túy để đo `time_ms` và `peak_aux_bytes`, không chèn biến đếm tránh làm sai lệch tối ưu hóa JIT của JVM.
+- **Counted Mode (`sortCounted`):** Thực thi trên bản sao dữ liệu độc lập để thu thập chính xác số phép so sánh khóa (`comparisons`), số phép gán/di chuyển (`moves`) và độ sâu đệ quy cực đại (`max_depth`).
+
+---
+
+## 🚀 Hướng Dẫn Build & Chạy
+
+### Yêu cầu hệ thống
+- **JDK:** Phiên bản 17 trở lên
+- **Build Tool:** Apache Maven 3.8+
+
+### 1. Biên dịch toàn bộ mã nguồn và test
+```bash
+mvn clean test-compile
+```
+
+### 2. Chạy thực nghiệm RQ1 và RQ2 tổng hợp (`results/rq1_benchmark.csv`, `results/rq2_benchmark.csv`)
+```bash
+java -Xmx4g -cp target/classes edu.csd201.sort.Benchmark --rq1 --rq2
+```
+
+### 3. Chạy thực nghiệm chi tiết cho riêng QuickSort (`results/quick_sort_results.csv`)
+```bash
+java -Xmx4g -cp target/classes edu.csd201.sort.ExperimentRunner
+```
+
+### 4. Chạy bộ đo cô lập từng JVM riêng (`MeasureRunner`)
+```bash
+java -cp target/classes edu.csd201.sort.MeasureRunner --rq=RQ1 --algo=QuickSort --out=results/rq1_quicksort_jvm.csv
 ```
 
 ---
 
-## 3. Hướng dẫn Biên dịch & Chạy Kiểm thử (Build & Verification)
+## 🧪 Kiểm Thử Độ Đúng Đắn (Testing)
 
-### Yêu cầu môi trường
-- **JDK 17** (hoặc OpenJDK 17+)
-- **Apache Maven 3.8+**
-- Hệ điều hành: Windows, Linux hoặc macOS
-
-### 3.1. Biên dịch toàn bộ dự án qua Maven
-```powershell
-mvn clean compile
+### Chạy toàn bộ JUnit 5 Test Suite qua Maven
+```bash
+mvn test
 ```
 
-### 3.2. Chạy kiểm thử tự động toàn bộ thuật toán
-
-#### Chạy kiểm thử tự động qua chuẩn Maven (JUnit 5):
-```powershell
-mvn test
-
-# Hoặc chạy kiểm thử riêng từng bộ test của TV1:
+### Chạy riêng từng bộ kiểm thử
+```bash
 mvn test -Dtest=QuickSortTest
+```
+
+```bash
 mvn test -Dtest=KillerAdversaryTest
 ```
 
-#### Kiểm thử QuickSort (TV1) độc lập bằng CLI (kèm xuất file log):
-```powershell
-# 1. Chạy từ mã nguồn đã chuẩn hóa và xuất log kiểm thử:
-javac -encoding UTF-8 -d target/classes src/main/java/edu/csd201/sort/*.java
-javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/edu/csd201/sort/QuickSortTest.java
-java -cp "target/classes;target/test-classes" edu.csd201.sort.QuickSortTest --log=results/quick_sort_test_log.txt
+```bash
+mvn test -Dtest=RadixTest
+```
 
-# 2. Chạy kiểm thử dữ liệu đối kháng (Killer Adversary - 266 ca kiểm thử):
-javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/edu/csd201/sort/KillerAdversaryTest.java
+### Chạy kiểm thử thông qua CLI độc lập
+```bash
+java -cp "target/classes;target/test-classes" edu.csd201.sort.QuickSortTest
+```
+
+```bash
 java -cp "target/classes;target/test-classes" edu.csd201.sort.KillerAdversaryTest
 ```
 
-#### Kiểm thử RadixSort (TV4) — 1.043 ca kiểm thử:
-```powershell
-javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/edu/csd201/sort/Datasets.java src/test/java/edu/csd201/sort/RadixSortTest.java
-java -cp "target/classes;target/test-classes" edu.csd201.sort.RadixSortTest
-```
-
-#### Kiểm thử ngẫu nhiên pdqsort (TV5/TV6) với 1.000 ca mảng ngẫu nhiên:
-```powershell
-java -cp target/classes edu.csd201.sort.ExperimentRunner randomized-test 20261016 1000 results/randomized-test.log
-```
+### Tóm tắt độ phủ kiểm thử
+- **`QuickSortTest` (7 nhóm JUnit 5):** Kiểm thử mảng biên, hợp đồng sắp xếp đoạn con `sort(a, lo, hi)`, mảng kích thước lớn $N=100.000$, đối chiếu `Arrays.sort` trên 1.200 mảng ngẫu nhiên, kiểm tra độ sâu đệ quy `maxDepth <= 64`, vét cạn toàn bộ $3.280$ mảng tam phân độ dài $0..7$ cùng $46.233$ hoán vị độ dài $1..8$, và kiểm tra tính tái lập của `DataGenerator` (`D1`/`D2`).
+- **`KillerAdversaryTest` (4 nhóm JUnit 5):** Kiểm thử sức chịu đựng của `QuickSort` trước 14 họ dữ liệu đối kháng (sawtooth, organ-pipe, median-of-three killer triples), 250 mảng ngẫu nhiên và thuật toán leo đồi (hill-climbing adversary).
+- **`RadixTest`:** Kiểm thử tính đúng đắn của `RadixSort` trên các phân phối dữ liệu.
 
 ---
 
-## 4. Hướng dẫn Chạy Thực nghiệm Benchmark (RQ1, RQ2, RQ3)
+## 📊 Tóm Tắt Kết Quả Thực Nghiệm Tiêu Biểu (RQ1 — Phân phối D1)
 
-Runner tập trung `edu.csd201.sort.Benchmark` hỗ trợ đo thời gian chạy thực tế (`timeMs`), số phép so sánh (`comparisons`), số phép gán (`assignments`), bộ nhớ phụ (`extraMemBytes`) và độ sâu đệ quy (`max_depth`):
+Số liệu trích xuất từ [`results/rq1_benchmark.csv`](results/rq1_benchmark.csv) (trung vị thời gian chạy tính bằng mili-giây trên phân phối ngẫu nhiên `D1`):
 
-```powershell
-# 1. Chạy xác thực tính đúng đắn trước khi đo:
-java -cp target/classes edu.csd201.sort.Benchmark verify-only
+| Kích thước $N$ | QuickSort (ms) | MergeSort (ms) | HeapSort (ms) | RadixSort (ms) |
+|---:|---:|---:|---:|---:|
+| `100,000` | 9.09 | 12.16 | 12.40 | 2.66 |
+| `1,000,000` | 81.91 | 126.98 | 246.30 | 10.67 |
+| `5,000,000` | 435.56 | 656.83 | 1,794.96 | 48.03 |
+| `10,000,000` | 901.79 | 1,353.30 | 4,060.69 | 123.70 |
+| `20,000,000` | 1,860.45 | 2,789.84 | 9,151.31 | 190.47 |
+| `50,000,000` | 4,904.14 | 7,330.72 | 25,849.68 | 512.01 |
 
-# 2. Chạy bài toán RQ1 (Scalability trên D1, N từ 100.000 đến 20.000.000):
-java -Xmx4g -cp target/classes edu.csd201.sort.Benchmark rq1
-
-# 3. Chạy bài toán RQ2 (Phân phối dữ liệu D1–D5 với các mức N=10^6, 10^7):
-java -Xmx4g -cp target/classes edu.csd201.sort.Benchmark rq2
-
-# 4. Chạy toàn bộ ma trận (Full benchmark):
-java -Xmx6g -cp target/classes edu.csd201.sort.Benchmark full
-```
-
-Kết quả sẽ tự động lưu vào thư mục `results/`:
-- `results/rq1_benchmark.csv`
-- `results/rq2_benchmark.csv`
-- `results/benchmark.csv`
-
----
-
-## 5. Quy ước Dữ liệu & Đạo đức Nghiên cứu
-- **Kiểu dữ liệu:** Mảng `int[]` nguyên thủy, các khóa không âm nằm trong $[0, 2^{31} - 1]$.
-- **Không trộn chế độ:** Lượt đo thời gian (`time`) chạy riêng biệt với lượt đếm (`count`) để tránh overhead của bộ đếm làm nhiễu kết quả `System.nanoTime()`.
-- **Tái lập (Reproducibility):** Mọi thí nghiệm được gắn `seed` cố định (`20261016`, `20261017`, `20261018`) ghi rõ trong metadata và CSV.
+Các báo cáo phân tích chuyên sâu được lưu trữ tại:
+- [Báo cáo thực nghiệm RQ1 QuickSort](docs/RQ1_QuickSort_Report.md)
+- [Báo cáo kỹ thuật TV1 QuickSort & D1/D2](docs/TV1_QuickSort_D1_D2_Technical_Report.md)

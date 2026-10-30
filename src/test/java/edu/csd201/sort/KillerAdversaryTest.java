@@ -8,18 +8,6 @@ import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Bounded adversary test suite against QuickSort at N=10,000.
- *
- * Scope: structured worst-case families, 200 fixed-seed random permutations,
- * duplicate-heavy random arrays, and hill-climbing search mutating arrays to maximize key comparisons.
- * Verifies that QuickSort Hoare + Median-of-Three does not blow up stack depth (depth <= 200)
- * and keeps comparisons within reasonable bounds.
- *
- * Supports both JUnit 5 test runner (mvn test) and standalone CLI execution:
- *   mvn test -Dtest=KillerAdversaryTest
- *   java -cp "target/classes;target/test-classes" edu.csd201.sort.KillerAdversaryTest
- */
 public final class KillerAdversaryTest {
 
     private static final int N = 10_000;
@@ -31,10 +19,6 @@ public final class KillerAdversaryTest {
 
     public KillerAdversaryTest() {
     }
-
-    // -------------------------------------------------------------------------
-    // JUnit 5 Test Methods
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("Kiểm thử các họ dữ liệu trường hợp xấu (Worst-case structured families)")
@@ -102,10 +86,6 @@ public final class KillerAdversaryTest {
         int bestDepth = runHillClimb(n, evaluations, seed);
         assertTrue(bestDepth <= 200, "Hillclimb maxDepth must remain balanced <= 200");
     }
-
-    // -------------------------------------------------------------------------
-    // Standalone CLI Runner (Pure JDK execution)
-    // -------------------------------------------------------------------------
 
     public static void main(String[] args) {
         System.out.println("=== Killer Adversary Test Suite (TV1) ===");

@@ -13,7 +13,6 @@ import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-
 public final class QuickSortTest {
 
     private static final int LARGE_N = 100_000;
@@ -26,10 +25,6 @@ public final class QuickSortTest {
 
     public QuickSortTest() {
     }
-
-    // -------------------------------------------------------------------------
-    // JUnit 5 Test Methods
-    // -------------------------------------------------------------------------
 
     @Test
     @DisplayName("Nhóm 1: Fixed edge cases (mảng rỗng, 1 phần tử, 2 phần tử, 3 phần tử giống nhau, giá trị cực trị biên)")
@@ -244,10 +239,6 @@ public final class QuickSortTest {
         QuickSort.sort(actual);
         assertArrayEquals(expected, actual, name + " must be sorted correctly");
     }
-
-    // -------------------------------------------------------------------------
-    // Standalone CLI Main Runner (Independent of JUnit classes at runtime)
-    // -------------------------------------------------------------------------
 
     public static void main(String[] args) throws IOException {
         String logPath = parseLogPath(args);
@@ -505,10 +496,6 @@ public final class QuickSortTest {
         expect("D1 of size 1 is valid", shortD1.length == 1);
         expect("D2 of size 1 is a copy", Arrays.equals(shortD1, DataGenerator.d2(shortD1)));
     }
-
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
 
     private static long permTotal;
     private static int permBad;

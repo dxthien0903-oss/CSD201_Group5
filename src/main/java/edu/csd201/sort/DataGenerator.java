@@ -62,7 +62,6 @@ public final class DataGenerator {
         };
     }
 
-    // TV1 D1/D2 helpers (SplittableRandom)
     public static int[] d1(int n, long seed) {
         if (n < 0) throw new IllegalArgumentException("n must be >= 0: " + n);
         java.util.SplittableRandom rnd = new java.util.SplittableRandom(seed);
@@ -82,14 +81,6 @@ public final class DataGenerator {
         return d2(d1(n, seed));
     }
 
-    // -------------------------------------------------------------------------
-    // D1 – Random
-    // -------------------------------------------------------------------------
-
-    /**
-     * D1: Mảng ngẫu nhiên hoàn toàn.
-     * Giá trị lấy từ toàn bộ dải int (Integer.MIN_VALUE .. Integer.MAX_VALUE).
-     */
     public static int[] generateRandom(int size, Random random) {
         int[] arr = new int[size];
         for (int i = 0; i < size; i++) {
@@ -98,14 +89,6 @@ public final class DataGenerator {
         return arr;
     }
 
-    // -------------------------------------------------------------------------
-    // D2 – Sorted (Tăng dần)
-    // -------------------------------------------------------------------------
-
-    /**
-     * D2: Mảng đã sắp xếp tăng dần (0, 1, 2, ..., size-1).
-     * Best-case điển hình cho nhiều thuật toán.
-     */
     public static int[] generateSorted(int size) {
         int[] arr = new int[size];
         for (int i = 0; i < size; i++) {
