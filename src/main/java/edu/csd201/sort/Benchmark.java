@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.Random;
 
 /**
- * Benchmark so sánh MergeSort với PdqSort trên 5 phân phối D1–D5.
+ * Benchmark các thuật toán MergeSort, HeapSort và PdqSort trên 5 phân phối D1–D5.
  *
  * <h2>Chế độ chạy</h2>
  * <ul>
@@ -34,6 +34,53 @@ import java.util.Random;
  * </pre>
  */
 public final class Benchmark {
+
+    enum SortAlgorithm {
+        MERGE_SORT("MergeSort"),
+        HEAP_SORT("HeapSort"),
+        PDQ_SORT("PdqSort");
+
+        private final String name;
+
+        SortAlgorithm(String name) {
+            this.name = name;
+        }
+
+        static SortAlgorithm fromName(String name) {
+            for (SortAlgorithm algorithm : values()) {
+                if (algorithm.name.equals(name)) {
+                    return algorithm;
+                }
+            }
+            throw new IllegalArgumentException("Unsupported benchmark algorithm: " + name);
+        }
+    }
+
+    static final class MetricsSummary {
+        private long comparisonTotal;
+        private long assignmentTotal;
+        private int comparisonRuns;
+        private int assignmentRuns;
+
+        void add(long comparisons, long assignments) {
+            if (comparisons >= 0) {
+                comparisonTotal += comparisons;
+                comparisonRuns++;
+            }
+            if (assignments >= 0) {
+                assignmentTotal += assignments;
+                assignmentRuns++;
+            }
+        }
+
+        Long averageComparisons() {
+            return comparisonRuns == 0 ? null : comparisonTotal / comparisonRuns;
+        }
+
+        Long averageAssignments() {
+            return assignmentRuns == 0 ? null : assignmentTotal / assignmentRuns;
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Cấu hình RQ1
@@ -231,8 +278,7 @@ public final class Benchmark {
             }
             int n = (int) size;
 
-            // Chỉ chạy MergeSort cho RQ1
-            sb.append(runDistribution("MergeSort", "D1", n, warmup, runs, DEFAULT_SEED, -1));
+            sb.append(runCoreAlgorithm("D1", n, warmup, runs, DEFAULT_SEED, -1));
             System.out.println();
         }
         return sb.toString();
@@ -263,32 +309,38 @@ public final class Benchmark {
 
             // D1 – 3 seed
             for (long seed : RQ2_SEEDS) {
-                sb.append(runDistribution("MergeSort", "D1", n, warmup, runs, seed, -1));
+                sb.append(runCoreAlgorithm("D1", n, warmup, runs, seed, -1));
             }
 
             // D2 – 1 seed (deterministic, seed không ảnh hưởng)
-            sb.append(runDistribution("MergeSort", "D2", n, warmup, runs, DEFAULT_SEED, -1));
+            sb.append(runCoreAlgorithm("D2", n, warmup, runs, DEFAULT_SEED, -1));
 
             // D3 – 3 seed
             for (long seed : RQ2_SEEDS) {
-                sb.append(runDistribution("MergeSort", "D3", n, warmup, runs, seed, -1));
+                sb.append(runCoreAlgorithm("D3", n, warmup, runs, seed, -1));
             }
 
             // D4 – 3 seed
             for (long seed : RQ2_SEEDS) {
-                sb.append(runDistribution("MergeSort", "D4", n, warmup, runs, seed, -1));
+                sb.append(runCoreAlgorithm("D4", n, warmup, runs, seed, -1));
             }
 
             // D5 – 3 K-values × 3 seed
             for (int k : D5_K_VALUES) {
                 for (long seed : RQ2_SEEDS) {
-                    sb.append(runDistribution("MergeSort", "D5_K" + k, n, warmup, runs, seed, k));
+                    sb.append(runCoreAlgorithm("D5_K" + k, n, warmup, runs, seed, k));
                 }
             }
 
             System.out.println();
         }
         return sb.toString();
+    }
+
+    private static String runCoreAlgorithm(String dist, int size, int warmup, int runs,
+                                           long seed, int k) {
+        return runDistribution("MergeSort", dist, size, warmup, runs, seed, k)
+                + runDistribution("HeapSort", dist, size, warmup, runs, seed, k);
     }
 
     // =========================================================================
@@ -316,8 +368,7 @@ public final class Benchmark {
         String fmt = "%-12s %-10s %12s  %10s  %16s  %16s  %12s%n";
 
         long totalNs  = 0;
-        long totalCmp = 0;
-        long totalAsn = 0;
+        MetricsSummary metricsSummary = new MetricsSummary();
         long totalMem = 0;
         int  okRuns   = 0;
 
@@ -330,8 +381,7 @@ public final class Benchmark {
             try {
                 runOne(algo, dist, size, rng, k, timeNs, met);
                 totalNs  += timeNs[0];
-                totalCmp += met[0];
-                totalAsn += met[1];
+                metricsSummary.add(met[0], met[1]);
                 totalMem += met[2];
                 okRuns++;
             } catch (OutOfMemoryError oom) {
@@ -346,10 +396,10 @@ public final class Benchmark {
             String outputCheck = (r == 0) ? verifyQuick(algo, dist, size, cellSeed, k) : "skipped";
 
             sb.append(String.format(Locale.ROOT,
-                "%s,%s,%d,%d,%.4f,%d,%d,%d,%d,%s,%s\n",
+                "%s,%s,%d,%d,%.4f,%s,%s,%d,%d,%s,%s\n",
                 algo, dist, size, r + 1,
                 timeNs[0] / 1e6,
-                met[0], met[1], met[2], met[3],
+                formatCsvMetric(met[0]), formatCsvMetric(met[1]), met[2], met[3],
                 outputCheck, status));
         }
 
@@ -359,8 +409,8 @@ public final class Benchmark {
                 algo, dist,
                 String.format(Locale.ROOT, "%,d", (long) size),
                 String.format(Locale.ROOT, "%.2f", totalNs / 1e6 / okRuns),
-                String.format(Locale.ROOT, "%,d", totalCmp / okRuns),
-                String.format(Locale.ROOT, "%,d", totalAsn / okRuns),
+                formatSummaryMetric(metricsSummary.averageComparisons()),
+                formatSummaryMetric(metricsSummary.averageAssignments()),
                 String.format(Locale.ROOT, "%.1f", totalMem / 1024.0 / okRuns));
         } else {
             System.out.printf(fmt, algo, dist,
@@ -371,6 +421,14 @@ public final class Benchmark {
         return sb.toString();
     }
 
+    static String formatCsvMetric(long metric) {
+        return metric < 0 ? "" : Long.toString(metric);
+    }
+
+    static String formatSummaryMetric(Long average) {
+        return average == null ? "-" : String.format(Locale.ROOT, "%,d", average);
+    }
+
     /**
      * Chạy một lần đo.
      *
@@ -379,33 +437,52 @@ public final class Benchmark {
      * @param metricsOut nếu != null, ghi [comparisons, assignments, extraMemBytes, max_depth]
      */
     private static void runOne(String algo, String dist, int size,
-                                Random rng, int k,
-                                long[] timeNsOut, long[] metricsOut) {
+                               Random rng, int k,
+                               long[] timeNsOut, long[] metricsOut) {
+        SortAlgorithm algorithm = SortAlgorithm.fromName(algo);
         int[] data = generateData(dist, size, rng, k);
 
-        if ("MergeSort".equals(algo)) {
-            MergeSort.MergeMetrics m = new MergeSort.MergeMetrics();
-            long t0 = System.nanoTime();
-            MergeSort.sort(data, m);
-            long t1 = System.nanoTime();
-            if (timeNsOut  != null) timeNsOut[0]  = t1 - t0;
-            if (metricsOut != null) {
-                metricsOut[0] = m.comparisons();
-                metricsOut[1] = m.assignments();
-                metricsOut[2] = m.extraMemoryBytes();
-                metricsOut[3] = -1; // MergeSort không có max_depth riêng
+        switch (algorithm) {
+            case MERGE_SORT -> {
+                MergeSort.MergeMetrics metrics = new MergeSort.MergeMetrics();
+                long t0 = System.nanoTime();
+                MergeSort.sort(data, metrics);
+                long t1 = System.nanoTime();
+                if (timeNsOut != null) timeNsOut[0] = t1 - t0;
+                if (metricsOut != null) {
+                    metricsOut[0] = metrics.comparisons();
+                    metricsOut[1] = metrics.assignments();
+                    metricsOut[2] = metrics.extraMemoryBytes();
+                    metricsOut[3] = -1;
+                }
             }
-        } else { // PdqSort
-            SortMetrics m = new SortMetrics();
-            long t0 = System.nanoTime();
-            PdqSort.sort(data, true, m);
-            long t1 = System.nanoTime();
-            if (timeNsOut  != null) timeNsOut[0]  = t1 - t0;
-            if (metricsOut != null) {
-                metricsOut[0] = m.partitionCount();
-                metricsOut[1] = m.maxDepth();
-                metricsOut[2] = 0L;
-                metricsOut[3] = m.maxDepth();
+            case HEAP_SORT -> {
+                int[] metricsInput = metricsOut == null ? null : data.clone();
+                long t0 = System.nanoTime();
+                HeapSort.sort(data);
+                long t1 = System.nanoTime();
+                if (timeNsOut != null) timeNsOut[0] = t1 - t0;
+                if (metricsOut != null) {
+                    HeapSort.HeapMetrics metrics = new HeapSort.HeapMetrics();
+                    HeapSort.sort(metricsInput, metrics);
+                    metricsOut[0] = metrics.comparisons();
+                    metricsOut[1] = metrics.assignments();
+                    metricsOut[2] = 0L;
+                    metricsOut[3] = -1;
+                }
+            }
+            case PDQ_SORT -> {
+                SortMetrics metrics = new SortMetrics();
+                long t0 = System.nanoTime();
+                PdqSort.sort(data, true, metrics);
+                long t1 = System.nanoTime();
+                if (timeNsOut != null) timeNsOut[0] = t1 - t0;
+                if (metricsOut != null) {
+                    metricsOut[0] = -1L;
+                    metricsOut[1] = -1L;
+                    metricsOut[2] = 0L;
+                    metricsOut[3] = metrics.maxDepth();
+                }
             }
         }
     }
@@ -424,26 +501,35 @@ public final class Benchmark {
     }
 
     /**
-     * Kiểm tra nhanh: sắp xếp mảng bằng MergeSort rồi so sánh với Arrays.sort.
+     * Kiểm tra nhanh: sắp xếp mảng bằng thuật toán được chọn rồi so sánh với Arrays.sort.
      * Chỉ thực hiện nếu size <= 100_000 (để tránh mất quá nhiều thời gian).
      *
      * @return "PASS", "FAIL", hoặc "skip-large"
      */
     private static String verifyQuick(String algo, String dist, int size, long seed, int k) {
+        SortAlgorithm algorithm = SortAlgorithm.fromName(algo);
         if (size > 100_000) return "skip-large";
         try {
             int[] input    = generateData(dist, size, new Random(seed), k);
             int[] expected = input.clone();
             int[] actual   = input.clone();
             Arrays.sort(expected);
-            if ("MergeSort".equals(algo)) {
-                MergeSort.sort(actual);
-            } else {
-                PdqSort.sort(actual, true, new SortMetrics());
-            }
+            sortForVerification(algorithm, actual);
             return Arrays.equals(expected, actual) ? "PASS" : "FAIL";
         } catch (Exception e) {
             return "ERROR";
+        }
+    }
+
+    static void sortForVerification(String algorithmName, int[] values) {
+        sortForVerification(SortAlgorithm.fromName(algorithmName), values);
+    }
+
+    private static void sortForVerification(SortAlgorithm algorithm, int[] values) {
+        switch (algorithm) {
+            case MERGE_SORT -> MergeSort.sort(values);
+            case HEAP_SORT -> HeapSort.sort(values);
+            case PDQ_SORT -> PdqSort.sort(values);
         }
     }
 
@@ -486,7 +572,7 @@ public final class Benchmark {
 
         for (int size : sizes) {
             for (String dist : DataGenerator.DISTRIBUTIONS) {
-                for (String algo : new String[]{"MergeSort", "PdqSort"}) {
+                for (String algo : new String[]{"MergeSort", "HeapSort", "PdqSort"}) {
                     sb.append(runDistribution(algo, dist, size, warmup, runs, seed, -1));
                 }
             }
