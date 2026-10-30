@@ -13,18 +13,18 @@ PASS fixed#7
 PASS fixed#8
 PASS fixed#9
 PASS fixed#10
-[sub-segment contract: sort(a, lo, hi)]
+[sub-segment contract]
 PASS sub-segment sorts only [2, 8)
 PASS sub-segment of size 1 is a no-op
 PASS empty sub-range is a no-op
 PASS sub-segment covering the whole array sorts it
 PASS out-of-range hi is rejected
-[large fixed-shape cases, N=100000]
+[large fixed-shape cases]
 PASS N=100000 all-equal
 PASS N=100000 ascending
 PASS N=100000 descending
 PASS N=100000 two-value extremes
-[randomized comparison against Arrays.sort]
+[randomized cases]
 PASS 1000 random arrays, N in [0, 100], full key range
 PASS 200 random arrays, N in [0, 100], duplicate-heavy domain {0..3}
 PASS empty array stays empty
@@ -44,7 +44,7 @@ PASS descending N=100000 keeps depth balanced (maxDepth <= 64)
   descending N=100000 -> comparisons=2003391, maxDepth=18
 PASS counted sub-segment sorts only the requested range
 PASS counted sub-segment reports statistics
-[exhaustive small-input sweep]
+[exhaustive sweep]
 PASS all 3280 arrays of length 0..7 over {0,1,2} sort correctly
 PASS all 46233 permutations of length 1..8 sort correctly
 [D1/D2 generators]

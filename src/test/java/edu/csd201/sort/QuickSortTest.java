@@ -1,5 +1,8 @@
 package edu.csd201.sort;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -8,11 +11,16 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.SplittableRandom;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 /**
  * TV1 correctness suite: fixed cases, large edge cases, randomized comparison against
- * Arrays.sort, counted-mode checks, sub-segment contract and D1/D2 generator rules.
+ * Arrays.sort, counted-mode checks, sub-segment contract, exhaustive permutations,
+ * and D1/D2 generator rules.
  *
- * Usage: java sorting.QuickSortTest [--log=out/quick_sort_test_log.txt]
+ * Supports both JUnit 5 test runner (mvn test) and standalone CLI execution:
+ *   mvn test -Dtest=QuickSortTest
+ *   java -cp "target/classes;target/test-classes" edu.csd201.sort.QuickSortTest [--log=results/quick_sort_test_log.txt]
  */
 public final class QuickSortTest {
 
@@ -23,10 +31,231 @@ public final class QuickSortTest {
     private static final StringBuilder LOG = new StringBuilder();
     private static int passed;
     private static int failed;
-    private static String stage = "init";
 
-    private QuickSortTest() {
+    public QuickSortTest() {
     }
+
+    // -------------------------------------------------------------------------
+    // JUnit 5 Test Methods
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Nhóm 1: Fixed edge cases (mảng rỗng, 1 phần tử, 2 phần tử, 3 phần tử giống nhau, giá trị cực trị biên)")
+    public void testFixedCases() {
+        int[][] cases = {
+                {7},
+                {2, 1},
+                {3, 3, 3},
+                {0, 2147483647, 0},
+                {5, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5},
+                {},
+                {0},
+                {1, 0},
+                {0, 2147483647},
+                {2147483647, 0, 2147483647},
+        };
+        for (int i = 0; i < cases.length; i++) {
+            assertSorted("fixed#" + (i + 1), cases[i]);
+        }
+    }
+
+    @Test
+    @DisplayName("Nhóm 2: Sub-segment contract sort(a, lo, hi) trên đoạn [lo, hi)")
+    public void testSubSegmentContract() {
+        int[] a = {9, 5, 1, 4, 1, 5, 9, 2, 6, 7};
+        int[] expected = a.clone();
+        Arrays.sort(expected, 2, 8);
+        QuickSort.sort(a, 2, 8);
+        assertArrayEquals(expected, a, "sub-segment sorts only [2, 8)");
+
+        int[] single = {42, 7, 3};
+        int[] singleCopy = single.clone();
+        QuickSort.sort(single, 1, 2);
+        assertArrayEquals(singleCopy, single, "sub-segment of size 1 is a no-op");
+
+        int[] emptyRange = {4, 3, 2};
+        int[] emptyCopy = emptyRange.clone();
+        QuickSort.sort(emptyRange, 1, 1);
+        assertArrayEquals(emptyCopy, emptyRange, "empty sub-range is a no-op");
+
+        int[] whole = {4, 3, 2, 1, 0};
+        QuickSort.sort(whole, 0, whole.length);
+        assertTrue(isAscending(whole), "sub-segment covering the whole array sorts it");
+
+        assertThrows(IndexOutOfBoundsException.class, () -> QuickSort.sort(new int[]{1, 2}, 0, 3),
+                "out-of-range hi must be rejected");
+    }
+
+    @Test
+    @DisplayName("Nhóm 3: Large fixed-shape cases N=100.000 (all-equal, ascending, descending, two-extremes)")
+    public void testLargeCases() {
+        int[] equal = new int[LARGE_N];
+        Arrays.fill(equal, 123456789);
+        assertSorted("N=100000 all-equal", equal);
+
+        int[] ascending = new int[LARGE_N];
+        for (int i = 0; i < ascending.length; i++) {
+            ascending[i] = i;
+        }
+        assertSorted("N=100000 ascending", ascending);
+
+        int[] descending = new int[LARGE_N];
+        for (int i = 0; i < descending.length; i++) {
+            descending[i] = LARGE_N - i;
+        }
+        assertSorted("N=100000 descending", descending);
+
+        int[] extremes = new int[LARGE_N];
+        for (int i = 0; i < extremes.length; i++) {
+            extremes[i] = (i % 2 == 0) ? 0 : Integer.MAX_VALUE;
+        }
+        assertSorted("N=100000 two-value extremes", extremes);
+    }
+
+    @Test
+    @DisplayName("Nhóm 4: Randomized cases vs Arrays.sort (1.000 mảng ngẫu nhiên & 200 mảng trùng lặp)")
+    public void testRandomizedCases() {
+        SplittableRandom rnd = new SplittableRandom(20261016L);
+        for (int i = 0; i < RANDOM_CASES; i++) {
+            int n = rnd.nextInt(0, 101);
+            int[] a = new int[n];
+            for (int j = 0; j < n; j++) {
+                a[j] = rnd.nextInt() & 0x7FFFFFFF;
+            }
+            assertTrue(sortMatchesArraysSort(a), "Random array #" + i + " must match Arrays.sort");
+        }
+
+        for (int i = 0; i < RANDOM_DUPLICATE_CASES; i++) {
+            int n = rnd.nextInt(0, 101);
+            int[] a = new int[n];
+            for (int j = 0; j < n; j++) {
+                a[j] = rnd.nextInt(0, 4);
+            }
+            assertTrue(sortMatchesArraysSort(a), "Duplicate array #" + i + " must match Arrays.sort");
+        }
+
+        int[] empty = new int[0];
+        assertTrue(sortMatchesArraysSort(empty), "empty array stays empty");
+    }
+
+    @Test
+    @DisplayName("Nhóm 5: Counted mode & max recursion depth checks")
+    public void testCountedMode() {
+        int[] data = DataGenerator.d1(5_000, 7L);
+        int[] expected = data.clone();
+        Arrays.sort(expected);
+        QuickSort.Stats stats = QuickSort.sortCounted(data);
+        assertArrayEquals(expected, data, "counted run sorts correctly");
+        assertTrue(stats.comparisons > 0, "counted run reports comparisons > 0");
+        assertTrue(stats.maxDepth >= 1, "counted run reports maxDepth >= 1");
+
+        int[] equal = new int[LARGE_N];
+        Arrays.fill(equal, 7);
+        QuickSort.Stats equalStats = QuickSort.sortCounted(equal);
+        assertTrue(isAscending(equal), "all-equal N=100000 stays correct in counted mode");
+        assertTrue(equalStats.maxDepth <= 64, "all-equal N=100000 keeps depth balanced (maxDepth <= 64)");
+
+        int[] ascending = new int[LARGE_N];
+        for (int i = 0; i < ascending.length; i++) {
+            ascending[i] = i;
+        }
+        QuickSort.Stats ascendingStats = QuickSort.sortCounted(ascending);
+        assertTrue(isAscending(ascending), "ascending N=100000 stays correct in counted mode");
+        assertTrue(ascendingStats.maxDepth <= 64, "ascending N=100000 keeps depth balanced (maxDepth <= 64)");
+
+        int[] descending = new int[LARGE_N];
+        for (int i = 0; i < descending.length; i++) {
+            descending[i] = LARGE_N - i;
+        }
+        QuickSort.Stats descendingStats = QuickSort.sortCounted(descending);
+        assertTrue(isAscending(descending), "descending N=100000 stays correct in counted mode");
+        assertTrue(descendingStats.maxDepth <= 64, "descending N=100000 keeps depth balanced (maxDepth <= 64)");
+
+        int[] segment = {9, 9, 4, 3, 2, 9, 9};
+        int[] segmentExpected = segment.clone();
+        Arrays.sort(segmentExpected, 1, 5);
+        QuickSort.Stats segmentStats = QuickSort.sortCounted(segment, 1, 5);
+        assertArrayEquals(segmentExpected, segment, "counted sub-segment sorts only the requested range");
+        assertTrue(segmentStats.maxDepth >= 1, "counted sub-segment reports statistics");
+    }
+
+    @Test
+    @DisplayName("Nhóm 6: Exhaustive small-input sweep (3.280 mảng độ dài 0..7 & 46.233 hoán vị độ dài 1..8)")
+    public void testExhaustiveSweep() {
+        int bad = 0;
+        for (int n = 0; n <= 7; n++) {
+            long combos = 1;
+            for (int i = 0; i < n; i++) {
+                combos *= 3;
+            }
+            int[] a = new int[n];
+            for (long code = 0; code < combos; code++) {
+                long value = code;
+                for (int i = 0; i < n; i++) {
+                    a[i] = (int) (value % 3);
+                    value /= 3;
+                }
+                if (!sortMatchesArraysSort(a)) {
+                    bad++;
+                }
+            }
+        }
+        assertEquals(0, bad, "all arrays of length 0..7 over {0,1,2} sort correctly");
+
+        permTotal = 0;
+        permBad = 0;
+        for (int n = 1; n <= 8; n++) {
+            int[] a = new int[n];
+            for (int i = 0; i < n; i++) {
+                a[i] = i + 1;
+            }
+            permutations(a, 0);
+        }
+        assertEquals(0, permBad, "all " + permTotal + " permutations of length 1..8 sort correctly");
+    }
+
+    @Test
+    @DisplayName("Nhóm 7: D1 & D2 DataGenerator contract")
+    public void testDataGenerators() {
+        int[] a1 = DataGenerator.d1(1_000, 42L);
+        int[] a2 = DataGenerator.d1(1_000, 42L);
+        assertArrayEquals(a1, a2, "D1 is reproducible for the same seed");
+
+        int[] other = DataGenerator.d1(1_000, 43L);
+        assertFalse(Arrays.equals(a1, other), "D1 differs for a different seed");
+
+        boolean inRange = true;
+        for (int value : a1) {
+            if (value < 0) {
+                inRange = false;
+                break;
+            }
+        }
+        assertTrue(inRange, "D1 keys stay in [0, 2^31 - 1]");
+
+        int[] d2 = DataGenerator.d2(a1);
+        assertTrue(isAscending(d2), "D2 is ascending");
+
+        int[] d1Copy = a1.clone();
+        Arrays.sort(d1Copy);
+        assertArrayEquals(d1Copy, d2, "D2 keeps the exact multiset of D1");
+
+        int[] shortD1 = DataGenerator.d1(1, 0L);
+        assertEquals(1, shortD1.length, "D1 of size 1 is valid");
+        assertArrayEquals(shortD1, DataGenerator.d2(shortD1), "D2 of size 1 is a copy");
+    }
+
+    private static void assertSorted(String name, int[] input) {
+        int[] actual = input.clone();
+        int[] expected = input.clone();
+        Arrays.sort(expected);
+        QuickSort.sort(actual);
+        assertArrayEquals(expected, actual, name + " must be sorted correctly");
+    }
+
+    // -------------------------------------------------------------------------
+    // Standalone CLI Main Runner (Independent of JUnit classes at runtime)
+    // -------------------------------------------------------------------------
 
     public static void main(String[] args) throws IOException {
         String logPath = parseLogPath(args);
@@ -37,41 +266,13 @@ public final class QuickSortTest {
                 + " java.vm.name=" + System.getProperty("java.vm.name"));
         line("");
 
-        for (int section = 0; section < 7; section++) {
-            try {
-                switch (section) {
-                    case 0:
-                        fixedCases();
-                        break;
-                    case 1:
-                        subSegmentCases();
-                        break;
-                    case 2:
-                        largeCases();
-                        break;
-                    case 3:
-                        randomizedCases();
-                        break;
-                    case 4:
-                        countedModeCases();
-                        break;
-                    case 5:
-                        exhaustiveCases();
-                        break;
-                    default:
-                        generatorCases();
-                        break;
-                }
-            } catch (Throwable thrown) {
-                failed++;
-                line("FATAL section#" + section + " stage=" + stage + " "
-                        + thrown.getClass().getName() + ": " + thrown.getMessage());
-                StackTraceElement[] trace = thrown.getStackTrace();
-                for (int i = 0; i < trace.length && i < 6; i++) {
-                    line("  at " + trace[i]);
-                }
-            }
-        }
+        runSection("fixed cases", QuickSortTest::cliFixedCases);
+        runSection("sub-segment contract", QuickSortTest::cliSubSegmentCases);
+        runSection("large fixed-shape cases", QuickSortTest::cliLargeCases);
+        runSection("randomized cases", QuickSortTest::cliRandomizedCases);
+        runSection("counted mode", QuickSortTest::cliCountedModeCases);
+        runSection("exhaustive sweep", QuickSortTest::cliExhaustiveCases);
+        runSection("D1/D2 generators", QuickSortTest::cliGeneratorCases);
 
         line("");
         line("SUMMARY passed=" + passed + " failed=" + failed);
@@ -92,8 +293,17 @@ public final class QuickSortTest {
         }
     }
 
-    private static void fixedCases() {
-        line("[fixed cases]");
+    private static void runSection(String name, Runnable test) {
+        try {
+            line("[" + name + "]");
+            test.run();
+        } catch (Throwable thrown) {
+            failed++;
+            line("FATAL section [" + name + "] " + thrown.getClass().getName() + ": " + thrown.getMessage());
+        }
+    }
+
+    private static void cliFixedCases() {
         int[][] cases = {
                 {7},
                 {2, 1},
@@ -111,8 +321,7 @@ public final class QuickSortTest {
         }
     }
 
-    private static void subSegmentCases() {
-        line("[sub-segment contract: sort(a, lo, hi)]");
+    private static void cliSubSegmentCases() {
         int[] a = {9, 5, 1, 4, 1, 5, 9, 2, 6, 7};
         int[] expected = a.clone();
         Arrays.sort(expected, 2, 8);
@@ -135,16 +344,14 @@ public final class QuickSortTest {
 
         boolean threw = false;
         try {
-            QuickSort.sort(new int[] {1, 2}, 0, 3);
+            QuickSort.sort(new int[]{1, 2}, 0, 3);
         } catch (IndexOutOfBoundsException e) {
             threw = true;
         }
         expect("out-of-range hi is rejected", threw);
     }
 
-    private static void largeCases() {
-        line("[large fixed-shape cases, N=" + LARGE_N + "]");
-
+    private static void cliLargeCases() {
         int[] equal = new int[LARGE_N];
         Arrays.fill(equal, 123456789);
         checkSorted("N=100000 all-equal", equal);
@@ -168,8 +375,7 @@ public final class QuickSortTest {
         checkSorted("N=100000 two-value extremes", extremes);
     }
 
-    private static void randomizedCases() {
-        line("[randomized comparison against Arrays.sort]");
+    private static void cliRandomizedCases() {
         SplittableRandom rnd = new SplittableRandom(20261016L);
         int badFullRange = 0;
         for (int i = 0; i < RANDOM_CASES; i++) {
@@ -195,20 +401,16 @@ public final class QuickSortTest {
                 badSmallDomain++;
             }
         }
-        expect("200 random arrays, N in [0, 100], duplicate-heavy domain {0..3}",
-                badSmallDomain == 0);
+        expect("200 random arrays, N in [0, 100], duplicate-heavy domain {0..3}", badSmallDomain == 0);
 
         int[] empty = new int[0];
         expect("empty array stays empty", sortMatchesArraysSort(empty));
     }
 
-    private static void countedModeCases() {
-        line("[counted mode]");
-
+    private static void cliCountedModeCases() {
         int[] data = DataGenerator.d1(5_000, 7L);
         int[] expected = data.clone();
         Arrays.sort(expected);
-        stage = "counted D1 n=5000";
         QuickSort.Stats stats = QuickSort.sortCounted(data);
         expect("counted run sorts correctly", Arrays.equals(expected, data));
         expect("counted run reports comparisons > 0", stats.comparisons > 0);
@@ -217,48 +419,73 @@ public final class QuickSortTest {
 
         int[] equal = new int[LARGE_N];
         Arrays.fill(equal, 7);
-        stage = "counted all-equal N=100000";
         QuickSort.Stats equalStats = QuickSort.sortCounted(equal);
         expect("all-equal N=100000 stays correct in counted mode", isAscending(equal));
-        expect("all-equal N=100000 keeps depth balanced (maxDepth <= 64)",
-                equalStats.maxDepth <= 64);
+        expect("all-equal N=100000 keeps depth balanced (maxDepth <= 64)", equalStats.maxDepth <= 64);
         line("  all-equal N=" + LARGE_N + " -> " + equalStats);
 
         int[] ascending = new int[LARGE_N];
         for (int i = 0; i < ascending.length; i++) {
             ascending[i] = i;
         }
-        stage = "counted ascending N=100000";
         QuickSort.Stats ascendingStats = QuickSort.sortCounted(ascending);
         expect("ascending N=100000 stays correct in counted mode", isAscending(ascending));
-        expect("ascending N=100000 keeps depth balanced (maxDepth <= 64)",
-                ascendingStats.maxDepth <= 64);
+        expect("ascending N=100000 keeps depth balanced (maxDepth <= 64)", ascendingStats.maxDepth <= 64);
         line("  ascending N=" + LARGE_N + " -> " + ascendingStats);
 
         int[] descending = new int[LARGE_N];
         for (int i = 0; i < descending.length; i++) {
             descending[i] = LARGE_N - i;
         }
-        stage = "counted descending N=100000";
         QuickSort.Stats descendingStats = QuickSort.sortCounted(descending);
         expect("descending N=100000 stays correct in counted mode", isAscending(descending));
-        expect("descending N=100000 keeps depth balanced (maxDepth <= 64)",
-                descendingStats.maxDepth <= 64);
+        expect("descending N=100000 keeps depth balanced (maxDepth <= 64)", descendingStats.maxDepth <= 64);
         line("  descending N=" + LARGE_N + " -> " + descendingStats);
 
         int[] segment = {9, 9, 4, 3, 2, 9, 9};
         int[] segmentExpected = segment.clone();
         Arrays.sort(segmentExpected, 1, 5);
-        stage = "counted sub-segment";
         QuickSort.Stats segmentStats = QuickSort.sortCounted(segment, 1, 5);
-        expect("counted sub-segment sorts only the requested range",
-                Arrays.equals(segmentExpected, segment));
+        expect("counted sub-segment sorts only the requested range", Arrays.equals(segmentExpected, segment));
         expect("counted sub-segment reports statistics", segmentStats.maxDepth >= 1);
     }
 
-    private static void generatorCases() {
-        line("[D1/D2 generators]");
+    private static void cliExhaustiveCases() {
+        long total = 0;
+        int bad = 0;
+        for (int n = 0; n <= 7; n++) {
+            long combos = 1;
+            for (int i = 0; i < n; i++) {
+                combos *= 3;
+            }
+            int[] a = new int[n];
+            for (long code = 0; code < combos; code++) {
+                long value = code;
+                for (int i = 0; i < n; i++) {
+                    a[i] = (int) (value % 3);
+                    value /= 3;
+                }
+                total++;
+                if (!sortMatchesArraysSort(a)) {
+                    bad++;
+                }
+            }
+        }
+        expect("all " + total + " arrays of length 0..7 over {0,1,2} sort correctly", bad == 0);
 
+        permTotal = 0;
+        permBad = 0;
+        for (int n = 1; n <= 8; n++) {
+            int[] a = new int[n];
+            for (int i = 0; i < n; i++) {
+                a[i] = i + 1;
+            }
+            permutations(a, 0);
+        }
+        expect("all " + permTotal + " permutations of length 1..8 sort correctly", permBad == 0);
+    }
+
+    private static void cliGeneratorCases() {
         int[] a1 = DataGenerator.d1(1_000, 42L);
         int[] a2 = DataGenerator.d1(1_000, 42L);
         expect("D1 is reproducible for the same seed", Arrays.equals(a1, a2));
@@ -287,49 +514,9 @@ public final class QuickSortTest {
         expect("D2 of size 1 is a copy", Arrays.equals(shortD1, DataGenerator.d2(shortD1)));
     }
 
-    /**
-     * Exhaustive small-input sweep: every array of length 0..7 over the alphabet {0,1,2}
-     * and every permutation of length 1..8. This is the regression net for the Hoare
-     * crossing-index recursion: a non-progressing partition would hang or overflow here.
-     */
-    private static void exhaustiveCases() {
-        line("[exhaustive small-input sweep]");
-
-        stage = "exhaustive alphabet {0,1,2}, length 0..7";
-        long total = 0;
-        int bad = 0;
-        for (int n = 0; n <= 7; n++) {
-            long combos = 1;
-            for (int i = 0; i < n; i++) {
-                combos *= 3;
-            }
-            int[] a = new int[n];
-            for (long code = 0; code < combos; code++) {
-                long value = code;
-                for (int i = 0; i < n; i++) {
-                    a[i] = (int) (value % 3);
-                    value /= 3;
-                }
-                total++;
-                if (!sortMatchesArraysSort(a)) {
-                    bad++;
-                }
-            }
-        }
-        expect("all " + total + " arrays of length 0..7 over {0,1,2} sort correctly", bad == 0);
-
-        stage = "exhaustive permutations, length 1..8";
-        permTotal = 0;
-        permBad = 0;
-        for (int n = 1; n <= 8; n++) {
-            int[] a = new int[n];
-            for (int i = 0; i < n; i++) {
-                a[i] = i + 1;
-            }
-            permutations(a, 0);
-        }
-        expect("all " + permTotal + " permutations of length 1..8 sort correctly", permBad == 0);
-    }
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
 
     private static long permTotal;
     private static int permBad;
@@ -371,7 +558,6 @@ public final class QuickSortTest {
     }
 
     private static void checkSorted(String name, int[] input) {
-        stage = name;
         int[] actual = input.clone();
         int[] expected = input.clone();
         Arrays.sort(expected);

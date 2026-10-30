@@ -1,17 +1,27 @@
 package edu.csd201.sort;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import java.util.Arrays;
 import java.util.Random;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 /**
- * Bounded adversary test against QuickSort at N=10,000.
+ * Bounded adversary test suite against QuickSort at N=10,000.
  *
  * Scope: structured worst-case families, 200 fixed-seed random permutations,
- * and hill-climb search mutating arrays to maximize key comparisons.
+ * duplicate-heavy random arrays, and hill-climbing search mutating arrays to maximize key comparisons.
  * Verifies that QuickSort Hoare + Median-of-Three does not blow up stack depth (depth <= 200)
  * and keeps comparisons within reasonable bounds.
+ *
+ * Supports both JUnit 5 test runner (mvn test) and standalone CLI execution:
+ *   mvn test -Dtest=KillerAdversaryTest
+ *   java -cp "target/classes;target/test-classes" edu.csd201.sort.KillerAdversaryTest
  */
 public final class KillerAdversaryTest {
+
     private static final int N = 10_000;
     private static int cases;
     private static long worstComparisons;
@@ -19,26 +29,101 @@ public final class KillerAdversaryTest {
     private static String worstLabel = "none";
     private static int failures;
 
-    private KillerAdversaryTest() {
+    public KillerAdversaryTest() {
     }
+
+    // -------------------------------------------------------------------------
+    // JUnit 5 Test Methods
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("Kiểm thử các họ dữ liệu trường hợp xấu (Worst-case structured families)")
+    public void testWorstCaseFamilies() {
+        assertFamily("all-equal", filled(N, 7));
+        assertFamily("ascending", ascending(N));
+        assertFamily("descending", descending(N));
+        assertFamily("organ-pipe", organPipe(N));
+        assertFamily("sawtooth-101", sawtooth(N, 101));
+        assertFamily("sawtooth-997", sawtooth(N, 997));
+        assertFamily("two-extremes", twoExtremes(N));
+        assertFamily("descending-triples", triples(N, 2, 1, 0));
+        assertFamily("ascending-triples", triples(N, 0, 1, 2));
+        assertFamily("median-middle-triples", triples(N, 0, 2, 1));
+        assertFamily("median-last-triples", triples(N, 1, 0, 2));
+        assertFamily("three-values-0-1-2", threeValues(N));
+        assertFamily("blocks-of-8-descending", blocks(N, 8));
+        assertFamily("blocks-of-32-descending", blocks(N, 32));
+    }
+
+    @Test
+    @DisplayName("Kiểm thử 200 hoán vị ngẫu nhiên toàn dải khóa (200 random permutations)")
+    public void testRandomPermutations() {
+        for (int seed = 1; seed <= 200; seed++) {
+            Random rnd = new Random(seed);
+            int[] a = new int[N];
+            for (int i = 0; i < N; i++) {
+                a[i] = rnd.nextInt() & 0x7FFFFFFF;
+            }
+            assertFamily("random-seed-" + seed, a);
+        }
+    }
+
+    @Test
+    @DisplayName("Kiểm thử 50 mảng miền giá trị hẹp trùng lặp cao (50 duplicate-heavy random arrays)")
+    public void testRandomDuplicatesDomain() {
+        for (int seed = 1; seed <= 50; seed++) {
+            Random rnd = new Random(seed);
+            int[] a = new int[N];
+            for (int i = 0; i < N; i++) {
+                a[i] = rnd.nextInt(8);
+            }
+            assertFamily("random-8-values-seed-" + seed, a);
+        }
+    }
+
+    @Test
+    @DisplayName("Kiểm thử tấn công leo đồi đối kháng (Hill-climbing adversary search)")
+    public void testHillClimbingAdversary() {
+        assertHillClimb(512, 4000, 12345L);
+        assertHillClimb(2048, 1500, 98765L);
+    }
+
+    private static void assertFamily(String label, int[] a) {
+        int[] expected = a.clone();
+        Arrays.sort(expected);
+        int[] work = a.clone();
+        QuickSort.Stats stats = QuickSort.sortCounted(work);
+        assertArrayEquals(expected, work, "Family [" + label + "] must be sorted correctly");
+        assertTrue(stats.maxDepth <= 200, "Family [" + label + "] maxDepth must be <= 200 (actual: " + stats.maxDepth + ")");
+        assertTrue(stats.comparisons <= 40L * N * 14L, "Family [" + label + "] comparisons exceeded safety threshold");
+    }
+
+    private static void assertHillClimb(int n, int evaluations, long seed) {
+        int bestDepth = runHillClimb(n, evaluations, seed);
+        assertTrue(bestDepth <= 200, "Hillclimb maxDepth must remain balanced <= 200");
+    }
+
+    // -------------------------------------------------------------------------
+    // Standalone CLI Runner (Pure JDK execution)
+    // -------------------------------------------------------------------------
 
     public static void main(String[] args) {
         System.out.println("=== Killer Adversary Test Suite (TV1) ===");
 
-        family("all-equal", filled(N, 7));
-        family("ascending", ascending(N));
-        family("descending", descending(N));
-        family("organ-pipe", organPipe(N));
-        family("sawtooth-101", sawtooth(N, 101));
-        family("sawtooth-997", sawtooth(N, 997));
-        family("two-extremes", twoExtremes(N));
-        family("descending-triples", triples(N, 2, 1, 0));
-        family("ascending-triples", triples(N, 0, 1, 2));
-        family("median-middle-triples", triples(N, 0, 2, 1));
-        family("median-last-triples", triples(N, 1, 0, 2));
-        family("three-values-0-1-2", threeValues(N));
-        family("blocks-of-8-descending", blocks(N, 8));
-        family("blocks-of-32-descending", blocks(N, 32));
+        cliFamily("all-equal", filled(N, 7));
+        cliFamily("ascending", ascending(N));
+        cliFamily("descending", descending(N));
+        cliFamily("organ-pipe", organPipe(N));
+        cliFamily("sawtooth-101", sawtooth(N, 101));
+        cliFamily("sawtooth-997", sawtooth(N, 997));
+        cliFamily("two-extremes", twoExtremes(N));
+        cliFamily("descending-triples", triples(N, 2, 1, 0));
+        cliFamily("ascending-triples", triples(N, 0, 1, 2));
+        cliFamily("median-middle-triples", triples(N, 0, 2, 1));
+        cliFamily("median-last-triples", triples(N, 1, 0, 2));
+        cliFamily("three-values-0-1-2", threeValues(N));
+        cliFamily("blocks-of-8-descending", blocks(N, 8));
+        cliFamily("blocks-of-32-descending", blocks(N, 32));
 
         for (int seed = 1; seed <= 200; seed++) {
             Random rnd = new Random(seed);
@@ -46,7 +131,7 @@ public final class KillerAdversaryTest {
             for (int i = 0; i < N; i++) {
                 a[i] = rnd.nextInt() & 0x7FFFFFFF;
             }
-            family("random-seed-" + seed, a);
+            cliFamily("random-seed-" + seed, a);
         }
         for (int seed = 1; seed <= 50; seed++) {
             Random rnd = new Random(seed);
@@ -54,11 +139,11 @@ public final class KillerAdversaryTest {
             for (int i = 0; i < N; i++) {
                 a[i] = rnd.nextInt(8);
             }
-            family("random-8-values-seed-" + seed, a);
+            cliFamily("random-8-values-seed-" + seed, a);
         }
 
-        hillClimb(512, 4000, 12345L);
-        hillClimb(2048, 1500, 98765L);
+        cliHillClimb(512, 4000, 12345L);
+        cliHillClimb(2048, 1500, 98765L);
 
         System.out.println("KILLER_CASES=" + cases);
         System.out.println("KILLER_FAILURES=" + failures);
@@ -73,7 +158,7 @@ public final class KillerAdversaryTest {
         }
     }
 
-    private static void family(String label, int[] a) {
+    private static void cliFamily(String label, int[] a) {
         int[] expected = a.clone();
         Arrays.sort(expected);
         int[] work = a.clone();
@@ -103,7 +188,14 @@ public final class KillerAdversaryTest {
         }
     }
 
-    private static void hillClimb(int n, int evaluations, long seed) {
+    private static void cliHillClimb(int n, int evaluations, long seed) {
+        int bestDepth = runHillClimb(n, evaluations, seed);
+        if (bestDepth > 200) {
+            failures++;
+        }
+    }
+
+    private static int runHillClimb(int n, int evaluations, long seed) {
         Random rnd = new Random(seed);
         int[] current = new int[n];
         for (int i = 0; i < n; i++) {
@@ -160,6 +252,7 @@ public final class KillerAdversaryTest {
             worstDepth = bestDepth;
             worstLabel = "hillclimb-n" + n;
         }
+        return bestDepth;
     }
 
     private static long score(int[] a) {

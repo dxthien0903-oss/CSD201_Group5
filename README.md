@@ -82,7 +82,16 @@ mvn clean compile
 
 ### 3.2. Chạy kiểm thử tự động toàn bộ thuật toán
 
-#### Kiểm thử QuickSort (TV1) — 42 nhóm ca kiểm thử + 46.233 hoán vị + Dữ liệu đối kháng:
+#### Chạy kiểm thử tự động qua chuẩn Maven (JUnit 5):
+```powershell
+mvn test
+
+# Hoặc chạy kiểm thử riêng từng bộ test của TV1:
+mvn test -Dtest=QuickSortTest
+mvn test -Dtest=KillerAdversaryTest
+```
+
+#### Kiểm thử QuickSort (TV1) độc lập bằng CLI (kèm xuất file log):
 ```powershell
 # 1. Chạy từ mã nguồn đã chuẩn hóa và xuất log kiểm thử:
 javac -encoding UTF-8 -d target/classes src/main/java/edu/csd201/sort/*.java
