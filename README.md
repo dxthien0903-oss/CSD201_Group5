@@ -41,7 +41,8 @@ CSD201_Group5/
 │   │   ├── SortMetrics.java                 # Thống nhất metrics: comparisons, assignments, reads, writes, maxDepth
 │   │   ├── DataGenerator.java               # Bộ sinh dữ liệu chính thức D1–D5
 │   │   ├── Benchmark.java                   # Runner chính đo thời gian và metrics cho cả 5 thuật toán
-│   │   └── ExperimentRunner.java            # Runner kiểm thử ngẫu nhiên và đo đạc RQ3
+│   │   ├── ExperimentRunner.java            # Runner kiểm thử ngẫu nhiên, các biến thể và HeapSort fallback
+│   │   └── Rq3Benchmark.java                 # Benchmark tái lập toàn ma trận RQ3
 │   └── test/java/edu/csd201/sort/
 │       ├── QuickSortTest.java               # [TV1] 42 ca kiểm thử toàn diện + 46.233 hoán vị
 │       ├── RadixSortTest.java               # [TV4] 1.043 ca kiểm thử giá trị biên và cơ số
@@ -58,6 +59,8 @@ CSD201_Group5/
 │   ├── benchmark.csv                        # Kết quả benchmark toàn diện
 │   ├── rq1_benchmark.csv                    # Kết quả RQ1 (Scalability trên D1)
 │   ├── rq2_benchmark.csv                    # Kết quả RQ2 (Phân phối dữ liệu D1–D5)
+│   ├── rq3_pdqsort.csv                      # Kết quả RQ3 trước khi bổ sung đếm comparisons
+│   ├── rq3_pdqsort_metrics.csv               # Kết quả RQ3 có đếm comparisons
 │   └── charts/                              # Biểu đồ phân tích thời gian và bộ nhớ phụ
 │
 └── tv4/                                     # HỒ SƠ BÀN GIAO CỦA THÀNH VIÊN 4
@@ -102,10 +105,12 @@ javac -encoding UTF-8 -cp target/classes -d target/test-classes src/test/java/ed
 java -cp "target/classes;target/test-classes" edu.csd201.sort.RadixSortTest
 ```
 
-#### Kiểm thử ngẫu nhiên pdqsort (TV5/TV6) với 1.000 ca mảng ngẫu nhiên:
+#### Kiểm thử pdqsort (TV5/TV6) với 10.000 mảng ngẫu nhiên:
 ```powershell
-java -cp target/classes edu.csd201.sort.ExperimentRunner randomized-test 20261016 1000 results/randomized-test.log
+java -cp target/classes edu.csd201.sort.ExperimentRunner randomized-test 20261016 10000 results/randomized-test.log
 ```
+Kiểm tra đối chiếu `Arrays.sort()` trên các cấu hình full, noA, noB và noA+noB,
+cùng các ca biên và HeapSort fallback.
 
 #### Kiểm thử riêng pdqsort noB (TV6):
 ```powershell
@@ -138,19 +143,23 @@ Kết quả sẽ tự động lưu vào thư mục `results/`:
 - `results/rq2_benchmark.csv`
 - `results/benchmark.csv`
 
-### 4.1. RQ3 — pdqsort noB và baseline Arrays.sort (TV6)
+### 4.1. RQ3 — benchmark pdqsort và baseline (TV6)
 
-`ExperimentRunner rq3` so sánh pdqsort đầy đủ, pdqsort noB và `Arrays.sort`
-trên D1–D4, D5_K2 và adversary duplicate-heavy có thể làm noB thực hiện nhiều
-lần partition. Mặc định dùng seed `20261016`, N = 4096 và 3 lượt đo:
+`Rq3Benchmark` chạy cùng ma trận dữ liệu, kích thước và số lần lặp cho
+QuickSort giáo trình, pdqsort full/noA/noB/noA+noB và `Arrays.sort`: D1–D4,
+D5 với K = 1.000/10/2; N = 1.000.000/10.000.000; ba seed cho D1, D3 và D5.
+Mặc định dùng hai warm-up và ba lượt đo cho mỗi tổ hợp. Mỗi kết quả được kiểm
+tra với oracle `Arrays.sort()` trước khi ghi CSV; runner không ghi đè file đã có.
 
 ```powershell
-java -cp target/classes edu.csd201.sort.ExperimentRunner rq3 20261016 4096 3 results/rq3_benchmark.csv
+java -Xmx4g -cp target/classes edu.csd201.sort.Rq3Benchmark --output results/rq3_pdqsort_metrics.csv
 ```
 
-Lệnh nhận dạng `count noB <integers...>` cũng có thể dùng để xem metrics của
-biến thể noB. Chi tiết phương pháp, schema CSV và giới hạn diễn giải adversary:
-[RQ3_Methods_and_Results_Report.md](docs/RQ3_Methods_and_Results_Report.md).
+Mỗi thuật toán được đo thời gian riêng; `SortMetrics` được thu ở lượt riêng
+ngoài vùng tính thời gian. CSV ghi metadata, checksum kiểm tra, thời gian và
+metrics. Hai CSV phía trên được giữ riêng; lệnh mặc định không ghi đè dữ liệu
+đã tồn tại. Xem [báo cáo phương pháp và kết quả RQ3](docs/RQ3_Methods_and_Results_Report.md).
+Kết quả hiện tại chạy bằng Java 17.0.12; yêu cầu baseline JDK 8 chưa được xác nhận.
 
 ---
 

@@ -1,29 +1,57 @@
 package edu.csd201.sort;
 
 public final class SortMetrics {
+    private final boolean collectionEnabled;
     private int maxDepth;
+    private long comparisonCount;
     private long partitionCount;
     private long heapFallbackCount;
     private long partialInsertionCount;
 
+    public SortMetrics() {
+        this(true);
+    }
+
+    SortMetrics(boolean collectionEnabled) {
+        this.collectionEnabled = collectionEnabled;
+    }
+
+    void recordComparison() {
+        if (collectionEnabled) {
+            comparisonCount++;
+        }
+    }
+
     void recordDepth(int depth) {
-        maxDepth = Math.max(maxDepth, depth);
+        if (collectionEnabled) {
+            maxDepth = Math.max(maxDepth, depth);
+        }
     }
 
     void recordPartition() {
-        partitionCount++;
+        if (collectionEnabled) {
+            partitionCount++;
+        }
     }
 
     void recordHeapFallback() {
-        heapFallbackCount++;
+        if (collectionEnabled) {
+            heapFallbackCount++;
+        }
     }
 
     void recordPartialInsertion() {
-        partialInsertionCount++;
+        if (collectionEnabled) {
+            partialInsertionCount++;
+        }
     }
 
     public int maxDepth() {
         return maxDepth;
+    }
+
+    public long comparisonCount() {
+        return comparisonCount;
     }
 
     public long partitionCount() {

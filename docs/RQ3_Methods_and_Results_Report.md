@@ -1,83 +1,68 @@
-# RQ3 — pdqsort mechanism B
+# RQ3 Methods and Results — pdqsort
 
 ## Research question
 
-How does disabling mechanism B, which excludes the pivot-equal range from further
-partitioning, affect pdqsort correctness and runtime compared with full pdqsort
-and the JDK `Arrays.sort(int[])` baseline?
+RQ3 asks how pdqsort compares with the course Quick Sort on the RQ2 input distributions, and how mechanisms A and B affect the sort. `Arrays.sort(int[])` is included as the library reference.
 
-## Implementation and reproducibility
+## Method
 
-`ExperimentRunner rq3` runs the same generated input through `pdqsort-full`,
-`pdqsort-noB`, and `Arrays.sort`. Input generation and the correctness oracle are
-outside the timed interval. Each algorithm receives a fresh clone of the same
-input, and one warmup is performed per algorithm and dataset before timed runs.
-The default seed is `20261016`, default size is `4096`, and default run count is
-`3`; these values can be overridden on the command line.
+The results below are taken from [`../results/rq3_pdqsort_metrics.csv`](../results/rq3_pdqsort_metrics.csv). That file contains the measured runs; the earlier `rq3_pdqsort.csv` is retained unchanged and does not contain pdqsort comparison counts.
 
-The datasets are:
+The benchmark used the assignment's RQ2 matrix:
 
-| Dataset | Construction |
-|---|---|
-| D1–D4 | Shared `DataGenerator`, using the supplied seed |
-| D5_K2 | Shared many-duplicates generator with K = 2 |
-| KILLER_DUPLICATE | All N keys equal `floor(N / 2)` |
+- Sizes: 1,000,000 and 10,000,000.
+- D1 and D3: seeds 20261016, 20261017, and 20261018.
+- D2 and D4: seed 20261016; these datasets are deterministic under the specified generator.
+- D5: K = 1,000, 10, and 2, each with the three seeds above.
+- Algorithms: course QuickSort (`hoare-med3`), pdqsort full, noA, noB, noA+noB, and `Arrays.sort`.
+- Two warm-ups and three timed repeats for each algorithm and dataset. Every algorithm receives the same generated input, by cloning it before each run.
 
-`KILLER_DUPLICATE` is a targeted adversary for mechanism B's equal-key handling,
-not a claim that the input is a universal or classical killer sequence for
-other sorting algorithms. It is deterministic and has a value that aligns with
-the current middle-sample index on an all-equal input. The full
-variant excludes the equal range, whereas `noB` feeds that range through
-repeated partitions until the bad-partition budget invokes the HeapSort
-fallback. Compare the partition and fallback counts as well as elapsed time.
-The fallback bounds this implementation's worst-case behavior; do not describe
-this input as demonstrating quadratic runtime.
+Before timing, the runner creates the dataset and an oracle sorted with `Arrays.sort`. It checks every completed output against the oracle before accepting the row. `output_check` is the specified rolling hash of that sorted output. A mismatch aborts the run before a CSV is written.
 
-### Existing implementation caveat
+Each timed sort runs with metric collection disabled. QuickSort and pdqsort metrics are collected in separate passes on clones of the same input, outside the timed interval, and those outputs are also checked against the oracle. The pdqsort comparison count includes each evaluated key comparison in pivot selection, partitioning, insertion sorts, and HeapSort fallback; index and loop-control comparisons are excluded. The counter only records data and does not change sort decisions.
 
-The shared `PdqSort.choosePivot` currently returns the selected sample index,
-while its caller uses that integer as the pivot key. This task does not modify
-that shared algorithm file, as it is outside TV6's ownership. Consequently,
-the standard D1–D5 runs characterize the current implementation and may not
-isolate mechanism B cleanly when the selected index is not a key in the data.
-The equal-key adversary is designed to exercise the equal-range path despite
-that issue. Have the owner of `PdqSort.java` review/fix the pivot contract before
-making broader claims about mechanism B from D1–D5.
+The matrix has 17 dataset/seed combinations per size, 6 algorithms, and 3 measured repeats: 612 result rows. The CSV records JDK, OS, and available processor count for reproducibility.
 
-Run from the repository root in PowerShell with JDK 17:
+## Results
+
+The table gives median elapsed time in milliseconds over the 51 timed rows per algorithm and size (17 dataset/seed combinations × 3 repeats). These are medians over the combined RQ2 distributions, not per-distribution medians.
+
+| Algorithm / variant | N = 1,000,000 | N = 10,000,000 |
+|---|---:|---:|
+| Course QuickSort (`hoare-med3`) | 38.235 | 442.948 |
+| pdqsort full | 17.211 | 210.520 |
+| pdqsort noA | 24.354 | 269.420 |
+| pdqsort noB | 51.456 | 626.545 |
+| pdqsort noA+noB | 57.376 | 730.871 |
+| `Arrays.sort` | 12.690 | 172.347 |
+
+Median pdqsort key-comparison counts over the same 51 rows:
+
+| pdqsort variant | N = 1,000,000 | N = 10,000,000 |
+|---|---:|---:|
+| full | 12,669,941 | 145,656,508 |
+| noA | 14,844,046 | 148,312,601 |
+| noB | 37,245,964 | 624,703,087 |
+| noA+noB | 80,497,007 | 964,993,826 |
+
+Relative to full pdqsort's median comparison count, noA is higher by 17.2% and 1.8% at the two sizes; noB is higher by 194.0% and 328.9%; disabling both is higher by 535.3% and 562.5%. These are aggregate medians across the specified dataset matrix. They describe this implementation and workload; they are not a claim that either mechanism has the same effect on every individual distribution.
+
+The full configuration's aggregate median elapsed time is below course QuickSort's at both sizes in this run. `Arrays.sort` has the lowest aggregate median among the six algorithms at both sizes. Runtime rankings vary by distribution, so the CSV should be consulted for per-dataset conclusions.
+
+All 612 rows have `status=PASS` and an oracle checksum; no QuickSort stack overflow was recorded in the timed or counted runs.
+
+## Runtime and JDK limitation
+
+The assignment describes `java.util.Arrays.sort(int[])` of JDK 8 as its reference implementation. The recorded RQ3 run used Java 17.0.12 on Windows 11 (10.0), with 16 available processors. JDK 8 is installed on the machine, but it was not used for this run. The project POM sets `maven.compiler.release` to 17, and the source uses Java 17 language/API features. Therefore these CSV results are a JDK 17 baseline, not a verified JDK 8 baseline.
+
+Whether JDK 17 is acceptable for the required JDK 8 reference has not been confirmed. No compiler target, source code, or runtime configuration was silently changed. The results must be rerun under an agreed JDK 8-compatible project/runtime setup, or the JDK 17 deviation must be explicitly accepted, before claiming the baseline requirement is met.
+
+## Reproducibility
+
+From the project root, after compiling with JDK 17:
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
-New-Item -ItemType Directory -Force target\classes, target\test-classes | Out-Null
-& "$env:JAVA_HOME\bin\javac.exe" -encoding UTF-8 -d target\classes src\main\java\edu\csd201\sort\*.java
-& "$env:JAVA_HOME\bin\javac.exe" -encoding UTF-8 -cp target\classes -d target\test-classes src\test\java\edu\csd201\sort\PdqSortTest.java
-& "$env:JAVA_HOME\bin\java.exe" -cp "target\classes;target\test-classes" edu.csd201.sort.PdqSortTest
-& "$env:JAVA_HOME\bin\java.exe" -cp target\classes edu.csd201.sort.ExperimentRunner rq3 20261016 4096 3 results\rq3_benchmark.csv
+java -Xmx4g -cp target/classes edu.csd201.sort.Rq3Benchmark --output results/rq3_pdqsort_metrics.csv
 ```
 
-The CLI form is:
-
-```text
-rq3 [seed] [size] [runs] [csv-file]
-```
-
-The output CSV includes the seed, dataset, algorithm and variant, per-run
-elapsed time, correctness result, and pdqsort metrics (maximum depth, partition
-count, HeapSort fallback count, and partial-insertion count). The JDK baseline
-does not expose pdqsort metrics, so those cells are empty. A run is marked
-`wrong` if its sorted result differs from the `Arrays.sort` oracle; the command
-exits non-zero if any result is wrong.
-
-## Mechanism analysis
-
-Mechanism B is evaluated by comparing full pdqsort with `noB` on identical
-inputs. D1–D4 provide ordinary ordering-pattern controls; D5_K2 and
-KILLER_DUPLICATE emphasize equal keys. Compare medians across the recorded runs,
-and interpret time alongside partition counts and maximum depth. The equal-key
-adversary is especially relevant because the current `noB` path does not skip
-the entire equal-key band. The JDK baseline is a practical reference point, not
-an implementation-equivalent control: it is a separate library algorithm.
-
-No RQ3 timing results are stated in this report. Generate the CSV on the target
-machine and retain its seed, JDK version, hardware details, and command when
-writing result claims.
+The runner refuses to overwrite an existing output file. Use a new `--output` path for subsequent runs.
