@@ -1,3 +1,5 @@
+package edu.csd201.sort;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryType;
@@ -10,8 +12,9 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Tiến trình con: mỗi lượt đo là một JVM riêng chạy lớp này.
- * (Phần "core benchmark" chính thức thuộc TV3; đây là bản mẫu để runner chạy thử.
+ * Tiến trình con: mỗi lượt đo là một JVM riêng chạy lớp này (do {@link MeasureRunner} khởi động).
+ * Đây là bộ đo theo quy định chung (mỗi lượt một JVM, làm nóng, SHA-256, oracle Arrays.sort, heap).
+ * Thêm thuật toán mới: thêm một nhánh trong {@link #pick}.
  *  Hợp đồng với Runner: in ra stdout ba loại dòng
  *    ENV,<jdk>,<os>,<cores>,<ram_mb>
  *    SHA,<sha256 của input>
@@ -19,19 +22,25 @@ import java.util.Map;
  *
  * Không có luồng phụ nào trong Worker: timeout do Runner xử lý (waitFor + destroyForcibly).
  */
-public final class Worker {
+public final class MeasureWorker {
 
     interface Sorter { void sort(int[] a); }
+
+    /** Bộ đếm của lượt --count (chỉ Radix có). */
+    static final RadixSort.RadixMetrics RADIX_METRICS = new RadixSort.RadixMetrics();
 
     static Sorter pick(String algo, String variant, boolean count) {
         switch (algo) {
             case "radix":
                 requireVariant(algo, variant, "base");
-                return count ? a -> RadixSort.sortCounting(a) : a -> RadixSort.sort(a);
+                return count ? a -> RadixSort.sort(a, RADIX_METRICS) : a -> RadixSort.sort(a);
             case "lib-Arrays.sort":
                 requireVariant(algo, variant, "base");
+                if (count) throw new IllegalArgumentException("--count chỉ hỗ trợ radix");
                 return a -> Arrays.sort(a);
-            // TODO: quick, merge, heap, pdq ... do các thành viên khác tích hợp
+            // TODO (mỗi thành viên thêm thuật toán của mình, gọi thẳng API trong package này):
+            //   "quick", "merge", "heap", "pdq" (variant base/noA/noB). Lưu ý bản đo thời gian phải KHÔNG đếm:
+            //   MergeSort.sort(int[]) hiện luôn đếm so sánh nên cần một bản sort không đếm trước khi đo chính thức.
             default:
                 throw new IllegalArgumentException("Chưa tích hợp thuật toán: " + algo);
         }
@@ -72,11 +81,11 @@ public final class Worker {
 
         try {
             // 1) Làm nóng: 3 lần trên dữ liệu nhỏ (10^5 phần tử <= 1 MiB), không ghi CSV
-            for (int w = 0; w < 3; w++) sorter.sort(Datasets.d1(100000, 12345L + w));
-            RadixSort.reset();
+            for (int w = 0; w < 3; w++) sorter.sort(DataGenerator.generateSpec("D1", 100000, 0, 12345L + w));
+            RADIX_METRICS.reset();
 
             // 2) Sinh dữ liệu, băm input, tạo bản oracle (đều NGOÀI vùng đo)
-            int[] a = Datasets.make(dataset, n, k, seed);
+            int[] a = DataGenerator.generateSpec(dataset, n, k, seed);
             System.out.println("SHA," + sha256(a));
             System.out.flush();
             int[] expect = a.clone();      // oracle nằm trong heap_before nên không tính vào bộ nhớ phụ
@@ -97,9 +106,9 @@ public final class Worker {
             for (int i = 0; i < a.length; i++) h = 31 * h + a[i];
 
             String ms = String.format(Locale.ROOT, "%.3f", (t1 - t0) / 1e6);
-            String ops = count ? String.valueOf(RadixSort.reads + RadixSort.writes) : "";
-            String rd = count ? String.valueOf(RadixSort.reads) : "";
-            String wr = count ? String.valueOf(RadixSort.writes) : "";
+            String ops = count ? String.valueOf(RADIX_METRICS.operations()) : "";
+            String rd = count ? String.valueOf(RADIX_METRICS.reads()) : "";
+            String wr = count ? String.valueOf(RADIX_METRICS.writes()) : "";
             System.out.println("RESULT," + (ok ? "ok" : "wrong") + "," + ms + "," + before + ","
                     + peak + "," + h + "," + ops + "," + rd + "," + wr);
         } catch (OutOfMemoryError e) {

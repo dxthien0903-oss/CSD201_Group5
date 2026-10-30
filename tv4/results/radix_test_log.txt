@@ -1,9 +1,0 @@
-=== RadixTest ===
-Nhóm 1 (ca cố định): xong
-Nhóm 2 (1.000 mảng ngẫu nhiên, seed = chỉ số lượt): xong
-Nhóm 3 (100.000 phần tử): xong
-Nhóm 4 (bộ đếm 8N / 4N): xong
-Nhóm 5 (generator): xong
-Nhóm 6 (mẫu đặc biệt theo byte): xong
-TỔNG: 1043 kiểm tra, lỗi = 0
-KẾT QUẢ: ĐẠT

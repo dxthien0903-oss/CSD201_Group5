@@ -1,3 +1,5 @@
+package edu.csd201.sort;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -20,25 +22,32 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Runner (tiến trình cha) của TV4: sinh plan, chạy cả ma trận cấu hình, kiểm tra và tổng hợp CSV.
+ * Bộ đo theo quy định chung, tiến trình CHA (TV4): sinh plan, chạy cả ma trận cấu hình, kiểm tra và
+ * tổng hợp CSV. Mỗi lượt đo chạy trong MỘT JVM riêng ({@link MeasureWorker}); các lượt chạy tuần tự.
  *
+ * <pre>
  *   gen-plan  --plan bench/plan_radix.csv [--big]
  *   run       --plan bench/plan_radix.csv --out results/raw/radix.csv --xmx 2g --machine-id M1
- *             [--timeout-sec 60] [--jar duong_dan.jar]
+ *             [--timeout-sec 60] [--app target/classes | duong_dan.jar]
  *   check     --plan ... --out ... [--strict]
  *   summary   --out results/raw/radix.csv [--summary-out results/radix_summary.csv]
- *   selftest                                (tự kiểm tra toàn bộ quy trình, vài chục giây)
+ *   selftest  [--app ...]                 (tự kiểm tra toàn bộ quy trình, vài chục giây)
+ *   worker    --algo radix --dataset D1 --n 1000000 --seed 1 [--k K] [--count]   (một lượt đo, in ENV/SHA/RESULT)
+ * </pre>
  *
- * --big    : thêm N = 5x10^7 vào RQ1 (chỉ khi máy đủ RAM).
+ * <p>--app là nơi chứa mã để khởi động JVM con: thư mục classes (mặc định khi chạy từ Maven/NetBeans,
+ * {@code target/classes}) hoặc file jar. Jar có Main-Class là lớp này thì JVM con chạy đúng lệnh của quy
+ * định {@code java -Xmx<xmx> -jar <jar> worker ...}; ngược lại dùng {@code java -Xmx<xmx> -cp <app>
+ * edu.csd201.sort.MeasureRunner worker ...}. Cả hai đều KHÔNG thêm cờ JVM nào khác.
  *
- * Lệnh đo đúng như quy định: `java -Xmx<xmx> -jar <jar> worker ...` — KHÔNG thêm cờ JVM nào khác.
- * Thực nghiệm: thêm -Xms lớn (>= 1g) làm heap_peak - heap_before ra 0 ở N nhỏ (TLAB cỡ hàng chục MB
- * che mất mảng phụ), còn đúng lệnh trên thì bộ nhớ phụ đúng ~4N ở mọi N; `selftest` kiểm tra điều này
- * trên chính máy đo. Timeout: waitFor(timeoutSec) rồi destroyForcibly() (mặc định 60 s, tính cả khởi động
- * JVM và sinh dữ liệu; với Radix phần chuẩn bị << 60 s).
-  * Mỗi lượt đo chạy trong MỘT JVM riêng; các lượt chạy tuần tự, không song song.
+ * <p>--big thêm N = 5x10^7 vào RQ1 (chỉ khi máy đủ RAM).
+ *
+ * <p>Lưu ý cờ JVM: thêm -Xms lớn (&gt;= 1g) làm heap_peak - heap_before ra 0 ở N nhỏ (TLAB cỡ hàng chục MB che
+ * mất mảng phụ), còn đúng lệnh trên thì bộ nhớ phụ đúng ~4N ở mọi N; selftest kiểm tra điều này trên chính
+ * máy đo. Timeout: waitFor(timeoutSec) rồi destroyForcibly() (mặc định 60 s, tính cả khởi động JVM và sinh
+ * dữ liệu; với Radix phần chuẩn bị rất nhỏ so với 60 s).
  */
-public final class Runner {
+public final class MeasureRunner {
 
     static final String HEADER = "run_id,rq,algorithm,variant,dataset,n,params,seed,input_sha256,"
             + "generator_version,repeat,elapsed_ms,heap_before_bytes,heap_peak_bytes,ops_count,"
@@ -55,18 +64,22 @@ public final class Runner {
     static volatile Process current;
 
     public static void main(String[] args) throws Exception {
-        Map<String, String> o = Worker.parse(args);
+        if (args.length > 0 && args[0].equals("worker")) { // JVM con: một lượt đo
+            MeasureWorker.main(Arrays.copyOfRange(args, 1, args.length));
+            return;
+        }
+        Map<String, String> o = MeasureWorker.parse(args);
         String cmd = args.length > 0 ? args[0] : "";
         Path plan = Paths.get(o.getOrDefault("plan", "bench/plan_radix.csv"));
         Path out = Paths.get(o.getOrDefault("out", "results/raw/radix.csv"));
         if (cmd.equals("gen-plan")) {
             genPlan(plan, o.containsKey("big"));
         } else if (cmd.equals("run")) {
-            String jar = o.containsKey("jar") ? o.get("jar") : ownJar();
+            String app = o.containsKey("app") ? o.get("app") : (o.containsKey("jar") ? o.get("jar") : ownApp());
             String xmxArg = o.getOrDefault("xmx", "2g"), mid = o.getOrDefault("machine-id", "M1");
             if (!xmxArg.matches("[0-9]+[kKmMgG]")) throw new IllegalArgumentException("--xmx phải có dạng 2g, 512m, ...");
             if (!mid.matches("[A-Za-z0-9_.-]+")) throw new IllegalArgumentException("--machine-id chỉ gồm chữ, số, _ . - (không có dấu phẩy/khoảng trắng)");
-            runPlan(plan, out, jar, o.getOrDefault("xmx", "2g"), o.getOrDefault("machine-id", "M1"),
+            runPlan(plan, out, app, o.getOrDefault("xmx", "2g"), o.getOrDefault("machine-id", "M1"),
                     Integer.parseInt(o.getOrDefault("timeout-sec", "60"))); // đo chính thức: để 60
         } else if (cmd.equals("check")) {
             requireFile(plan, "plan");
@@ -76,9 +89,9 @@ public final class Runner {
             requireFile(out, "CSV kết quả");
             summary(out, o.containsKey("summary-out") ? Paths.get(o.get("summary-out")) : null);
         } else if (cmd.equals("selftest")) {
-            System.exit(selfTest(o.containsKey("jar") ? o.get("jar") : ownJar()) ? 0 : 1);
+            System.exit(selfTest(o.containsKey("app") ? o.get("app") : (o.containsKey("jar") ? o.get("jar") : ownApp())) ? 0 : 1);
         } else {
-            System.out.println("Dùng: gen-plan | run | check | summary | selftest | worker");
+            System.out.println("Dùng: gen-plan | run | check | summary | selftest | worker (xem phần chú thích đầu lớp)");
         }
     }
 
@@ -202,7 +215,7 @@ public final class Runner {
     }
 
     // ===================== Chạy plan =====================
-    static void runPlan(Path plan, Path out, String jar, String xmx, String machine,
+    static void runPlan(Path plan, Path out, String app, String xmx, String machine,
                         int timeoutSec) throws Exception {
         List<String[]> rows = readPlan(plan);       // kiểm tra TOÀN BỘ plan trước khi chạy lượt đầu
         Set<String> done = prepareOut(out);
@@ -221,7 +234,7 @@ public final class Runner {
         for (String[] f : rows) {
             idx++;
             if (done.contains(f[0])) continue;
-            String csv = executeOne(f, jar, xmx, machine, commit, timeoutSec);
+            String csv = executeOne(f, app, xmx, machine, commit, timeoutSec);
             Files.write(out, Arrays.asList(csv), StandardCharsets.UTF_8, StandardOpenOption.APPEND);
             String[] c = csv.split(",", -1);
             System.out.println("[" + idx + "/" + total + "] " + f[0] + " " + f[1] + " " + f[4]
@@ -231,20 +244,15 @@ public final class Runner {
     }
 
     /** Chạy một lượt trong JVM riêng và trả về một dòng CSV theo HEADER. */
-    static String executeOne(String[] f, String jar, String xmx, String machine, String commit,
+    static String executeOne(String[] f, String app, String xmx, String machine, String commit,
                              int timeoutSec) throws Exception {
         String runId = f[0], rq = f[1], algo = f[2], variant = f[3], ds = f[4], n = f[5];
         int k = Integer.parseInt(f[6]);
         String seed = f[7], rep = f[8];
         boolean count = Boolean.parseBoolean(f[9]);
 
-        List<String> cmd = new ArrayList<String>();
-        cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
-        cmd.add("-Xmx" + xmx);                   // đúng lệnh đo của quy định; không thêm cờ JVM khác
+        List<String> cmd = childCommand(app, xmx);  // đúng lệnh đo của quy định; không thêm cờ JVM khác
         String flags = "-Xmx" + xmx;
-        cmd.add("-jar");
-        cmd.add(jar);
-        cmd.add("worker");
         cmd.addAll(Arrays.asList("--algo", algo, "--variant", variant, "--dataset", ds,
                 "--n", n, "--seed", seed));
         if (k > 0) cmd.addAll(Arrays.asList("--k", String.valueOf(k)));
@@ -302,7 +310,7 @@ public final class Runner {
         if (env != null && env.length >= 5) { jdk = env[1]; os = env[2]; cores = env[3]; ram = env[4]; }
 
         return String.join(",", runId, rq, algo, variant, ds, n, params.toString(), seed, sha,
-                Datasets.GENERATOR_VERSION, rep, elapsed, before, peak, ops, check, status, xmx,
+                DataGenerator.SPEC_GENERATOR_VERSION, rep, elapsed, before, peak, ops, check, status, xmx,
                 machine, commit, rd, wr, "",
                 k > 0 ? String.valueOf(k) : "", jdk, os, cores, ram, flags);
     }
@@ -460,7 +468,7 @@ public final class Runner {
     static String fmt(double d) { return String.format(Locale.ROOT, "%.3f", d); }
 
     // ===================== selftest =====================
-    static boolean selfTest(String jar) throws Exception {
+    static boolean selfTest(String app) throws Exception {
         int[] fails = {0};
         String commit = "selftest";
         // run_id, rq, algo, variant, dataset, n, k, seed, repeat, count
@@ -484,7 +492,7 @@ public final class Runner {
         outLines.add(HEADER);
         for (String[] f : cases) {
             planLines.add(String.join(",", f));
-            String csv = executeOne(f, jar, "2g", "SELF", commit, 60); // đúng lệnh và cỡ heap của đo chính thức
+            String csv = executeOne(f, app, "2g", "SELF", commit, 60); // đúng lệnh và cỡ heap của đo chính thức
             outLines.add(csv);
             String[] c = csv.split(",", -1);
             boolean isCount = f[9].equals("true");
@@ -498,19 +506,10 @@ public final class Runner {
                         && c[IDX.get("ops_count")].equals(String.valueOf(er + ew))
                         && c[IDX.get("elapsed_ms")].isEmpty();
             }
-            if (ok && !isCount && n >= 100000) { // bộ nhớ phụ ~ 4N byte (một mảng int phụ)
+            if (ok && !isCount && n >= 100000) { // bộ nhớ phụ ~ 4N byte (một mảng int phụ), ở MỌI N
                 long auxB = Long.parseLong(c[IDX.get("heap_peak_bytes")]) - Long.parseLong(c[IDX.get("heap_before_bytes")]);
-                boolean inRange = auxB >= 4 * n && auxB <= 4 * n + (2L << 20);
-                if (n >= 1000000) {
-                    ok = inRange;   // N lớn: phép đo bắt buộc phải đúng
-                    if (!ok) System.out.println("  bộ nhớ phụ ngoài khoảng kỳ vọng: " + auxB);
-                } else if (!inRange) {
-                    // N nhỏ: mảng phụ nằm gọn trong TLAB nên mức dùng heap không tăng. Đây là giới hạn
-                    // độ phân giải của cách đo heap_peak - heap_before (ngưỡng tăng theo heap khởi tạo
-                    // = 1/64 RAM), không phải lỗi mã nguồn. Chỉ cảnh báo, không tính là lỗi.
-                    System.out.println("  cảnh báo: n=" + n + " bộ nhớ phụ đo được " + auxB
-                            + " (kỳ vọng ~" + 4 * n + ") - dưới độ phân giải của phép đo trên máy này");
-                }
+                ok = auxB >= 4 * n && auxB <= 4 * n + (2L << 20);
+                if (!ok) System.out.println("  bộ nhớ phụ ngoài khoảng kỳ vọng: " + auxB);
             }
             report(f[0] + " " + f[4] + " n=" + n + " k=" + f[6] + (isCount ? " --count" : ""), ok, fails);
         }
@@ -527,13 +526,13 @@ public final class Runner {
         // Các trường hợp lỗi phải được ghi đúng trạng thái
         String[] oom = {"E1", "T", "radix", "base", "D1", "20000000", "0", "1", "1", "false"};
         report("E1 hết bộ nhớ (xmx 32m) -> status oom",
-                executeOne(oom, jar, "32m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("oom"), fails);
+                executeOne(oom, app, "32m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("oom"), fails);
         String[] badVariant = {"E2", "T", "radix", "noA", "D1", "1000", "0", "1", "1", "false"};
         report("E2 biến thể sai -> status crash",
-                executeOne(badVariant, jar, "256m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("crash"), fails);
+                executeOne(badVariant, app, "256m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("crash"), fails);
         String[] badAlgo = {"E3", "T", "quick", "base", "D1", "1000", "0", "1", "1", "false"};
         report("E3 thuật toán chưa tích hợp -> status crash",
-                executeOne(badAlgo, jar, "256m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("crash"), fails);
+                executeOne(badAlgo, app, "256m", "SELF", commit, 60).split(",", -1)[IDX.get("status")].equals("crash"), fails);
         try {
             validateRow("R1,RQ1,radix,base,D6,10,0,1,1,false".split(",", -1), 2);
             report("plan sai dataset phải bị từ chối", false, fails);
@@ -550,13 +549,35 @@ public final class Runner {
     }
 
     // ===================== Tiện ích =====================
-    static String ownJar() throws Exception {
-        String p = new File(Runner.class.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .getPath();
-        if (!p.endsWith(".jar")) {
-            throw new IllegalStateException("Hãy chạy từ file jar (Clean and Build) hoặc truyền --jar.");
+    /** Nơi chứa mã của chính lớp này: thư mục classes (Maven/NetBeans) hoặc file jar. */
+    static String ownApp() throws Exception {
+        return new File(MeasureRunner.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
+    }
+
+    /** Lệnh JVM con, dừng ngay trước các tham số của worker: java -Xmx.. (-jar app | -cp app MeasureRunner) worker. */
+    static List<String> childCommand(String app, String xmx) {
+        List<String> cmd = new ArrayList<String>();
+        cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
+        cmd.add("-Xmx" + xmx);
+        if (app.endsWith(".jar") && jarMainClassIsRunner(app)) {
+            cmd.add("-jar");
+            cmd.add(app);
+        } else {
+            cmd.add("-cp");
+            cmd.add(app);
+            cmd.add(MeasureRunner.class.getName());
         }
-        return p;
+        cmd.add("worker");
+        return cmd;
+    }
+
+    private static boolean jarMainClassIsRunner(String jar) {
+        try (java.util.jar.JarFile jf = new java.util.jar.JarFile(jar)) {
+            java.util.jar.Manifest m = jf.getManifest();
+            return m != null && MeasureRunner.class.getName().equals(m.getMainAttributes().getValue("Main-Class"));
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     /** Mã commit ngắn; thêm "-dirty" nếu có thay đổi chưa commit ở các file đã được git theo dõi. */

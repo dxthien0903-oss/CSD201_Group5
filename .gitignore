@@ -6,7 +6,6 @@ target/
 
 # Log file
 *.log
-radix_test_log.txt
 
 # BlueJ files
 *.ctxt
