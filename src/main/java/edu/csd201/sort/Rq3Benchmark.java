@@ -16,15 +16,15 @@ public final class Rq3Benchmark {
     private static final int[] DEFAULT_SIZES = {1_000_000, 10_000_000};
     private static final int[] D5_K_VALUES = {1_000, 10, 2};
     private static final String CSV_HEADER = "rq,dataset,size,k,seed,algorithm,variant,warmup_runs,"
-            + "warmup_stack_overflows,repeat,elapsed_ms,output_check,comparisons,partitions,"
-            + "partial_insertions,heap_fallbacks,max_depth,jdk_version,os,available_processors,status\n";
+            + "warmup_stack_overflows,repeat,elapsed_ms,heap_before_bytes,heap_peak_bytes,output_check,"
+            + "comparisons,partitions,partial_insertions,heap_fallbacks,max_depth,jdk_version,os,"
+            + "available_processors,status\n";
 
     private static final List<Algorithm> ALGORITHMS = List.of(
             new Algorithm("QuickSort", "hoare-med3", true, true, true),
             new Algorithm("pdqsort", "full", true, true, false),
             new Algorithm("pdqsort", "noA", false, true, false),
             new Algorithm("pdqsort", "noB", true, false, false),
-            new Algorithm("pdqsort", "noA+noB", false, false, false),
             new Algorithm("Arrays.sort", "jdk", true, true, false));
 
     private Rq3Benchmark() {
@@ -98,13 +98,18 @@ public final class Rq3Benchmark {
             for (int repeat = 1; repeat <= repeats; repeat++) {
                 int[] actual = input.clone();
                 SortMetrics timingMetrics = new SortMetrics(false);
+                System.gc();
+                MeasureWorker.resetHeapPeaks();
+                long heapBefore = MeasureWorker.heapBytes(false);
                 long started = System.nanoTime();
                 boolean completed = sort(algorithm, actual, timingMetrics);
                 double elapsedMs = (System.nanoTime() - started) / 1_000_000.0;
+                long heapPeak = MeasureWorker.heapBytes(true);
                 if (!completed) {
                     stackOverflows++;
                     rows.append(csvRow(dataset, algorithm, warmups, warmupOverflows,
-                            repeat, elapsedMs, "", "", "", "", "", "", "STACK_OVERFLOW"));
+                            repeat, elapsedMs, heapBefore, heapPeak,
+                            "", "", "", "", "", "", "STACK_OVERFLOW"));
                     rowCount++;
                     continue;
                 }
@@ -154,7 +159,7 @@ public final class Rq3Benchmark {
                 }
 
                 rows.append(csvRow(dataset, algorithm, warmups, warmupOverflows, repeat,
-                        elapsedMs, Long.toString(checksum(actual)), comparisons, partitions,
+                        elapsedMs, heapBefore, heapPeak, Long.toString(checksum(actual)), comparisons, partitions,
                         partialInsertions, heapFallbacks, maxDepth, status));
                 rowCount++;
             }
@@ -166,7 +171,7 @@ public final class Rq3Benchmark {
         int stackOverflows = 0;
         for (int run = 0; run < warmups; run++) {
             int[] actual = input.clone();
-            boolean completed = sort(algorithm, actual, new SortMetrics());
+            boolean completed = sort(algorithm, actual, new SortMetrics(false));
             if (!completed) {
                 stackOverflows++;
             } else if (!Arrays.equals(expected, actual)) {
@@ -219,6 +224,8 @@ public final class Rq3Benchmark {
             int warmupOverflows,
             int repeat,
             double elapsedMs,
+            long heapBeforeBytes,
+            long heapPeakBytes,
             String outputCheck,
             String comparisons,
             String partitions,
@@ -227,10 +234,11 @@ public final class Rq3Benchmark {
             String maxDepth,
             String status) {
         return String.format(Locale.ROOT,
-                "RQ3,%s,%d,%d,%d,%s,%s,%d,%d,%d,%.4f,%s,%s,%s,%s,%s,%s,%s,%s,%d,%s%n",
+                "RQ3,%s,%d,%d,%d,%s,%s,%d,%d,%d,%.4f,%d,%d,%s,%s,%s,%s,%s,%s,%s,%s,%d,%s%n",
                 dataset.name, dataset.size, dataset.k, dataset.seed, algorithm.name, algorithm.variant,
-                warmups, warmupOverflows, repeat, elapsedMs, outputCheck, comparisons, partitions,
-                partialInsertions, heapFallbacks, maxDepth, csvValue(System.getProperty("java.version")),
+                warmups, warmupOverflows, repeat, elapsedMs, heapBeforeBytes, heapPeakBytes,
+                outputCheck, comparisons, partitions, partialInsertions, heapFallbacks, maxDepth,
+                csvValue(System.getProperty("java.version")),
                 csvValue(System.getProperty("os.name") + " " + System.getProperty("os.version")),
                 Runtime.getRuntime().availableProcessors(), status);
     }

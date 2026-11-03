@@ -53,13 +53,29 @@ public final class DataGenerator {
     public static int[] generate(String distribution, int size, Random random) {
         return switch (distribution) {
             case "D1" -> generateRandom(size, random);
-            case "D2" -> generateSorted(size);
+            case "D2" -> generateSortedFromRandom(size, random);
             case "D3" -> generateNearlySorted(size, random);
-            case "D4" -> generateReverse(size);
+            case "D4" -> generateReverseFromRandom(size, random);
             case "D5" -> generateManyDuplicates(size, random);
             default   -> throw new IllegalArgumentException(
                     "Unknown distribution: " + distribution + ". Expected D1..D5");
         };
+    }
+
+    private static int[] generateSortedFromRandom(int size, Random random) {
+        int[] values = generateRandom(size, random);
+        Arrays.sort(values);
+        return values;
+    }
+
+    private static int[] generateReverseFromRandom(int size, Random random) {
+        int[] values = generateSortedFromRandom(size, random);
+        for (int low = 0, high = size - 1; low < high; low++, high--) {
+            int value = values[low];
+            values[low] = values[high];
+            values[high] = value;
+        }
+        return values;
     }
 
     public static int[] d1(int n, long seed) {
@@ -98,14 +114,12 @@ public final class DataGenerator {
     }
 
     // -------------------------------------------------------------------------
-    // D4 – Reverse Sorted (Giảm dần)
+    // Descending sequence helper
     // -------------------------------------------------------------------------
 
     /**
-     * D4: D2 đảo ngược – mảng giảm dần (size-1, size-2, ..., 1, 0).
-     *
-     * <p>Đúng theo đặc tả: D4 = D2 đảo ngược.
-     * Worst-case với insertion sort và các thuật toán nhạy cảm thứ tự.
+     * Tạo một dãy giảm dần (size-1, size-2, ..., 1, 0).
+     * Phân phối D4 chuẩn trong {@link #generate} đảo ngược D2 ngẫu nhiên.
      */
     public static int[] generateReverse(int size) {
         int[] arr = new int[size];
@@ -120,22 +134,22 @@ public final class DataGenerator {
     // -------------------------------------------------------------------------
 
     /**
-     * D3: D2 sau khi hoán đổi ngẫu nhiên N/1.000 cặp vị trí.
-     *
-     * <p>Số cặp hoán vị = {@code max(1, size / 1000)} (làm tròn xuống).
-     * Đúng theo đặc tả đề bài: D3 = lấy D2 rồi hoán đổi N/1.000 cặp ngẫu nhiên.
+     * D3: D2 sau khi hoán đổi {@code floor(size / 1000)} cặp vị trí khác nhau.
      *
      * <p><b>Phối hợp TV1:</b> D3 phụ thuộc D2 do TV1 sinh; cùng seed và multiset.
      */
     public static int[] generateNearlySorted(int size, Random random) {
-        int[] arr = generateSorted(size);
+        int[] arr = generateSortedFromRandom(size, random);
         if (size < 2) {
             return arr; // không thể hoán vị khi chưa đủ 2 phần tử
         }
-        int swaps = Math.max(1, size / 1000); // N/1.000 cặp theo đặc tả
+        int swaps = size / 1000;
         for (int i = 0; i < swaps; i++) {
             int a = random.nextInt(size);
-            int b = random.nextInt(size);
+            int b = random.nextInt(size - 1);
+            if (b >= a) {
+                b++;
+            }
             int tmp = arr[a];
             arr[a]  = arr[b];
             arr[b]  = tmp;

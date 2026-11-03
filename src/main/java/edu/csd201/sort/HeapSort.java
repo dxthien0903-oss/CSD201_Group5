@@ -17,21 +17,33 @@ public final class HeapSort {
     }
 
     public static void sort(int[] values, int low, int high) {
+        sort(values, low, high, null);
+    }
+
+    static void sort(int[] values, int low, int high, SortMetrics metrics) {
         int size = high - low;
         for (int root = size / 2 - 1; root >= 0; root--) {
-            siftDown(values, low, root, size);
+            siftDown(values, low, root, size, metrics);
         }
         for (int end = size - 1; end > 0; end--) {
             swap(values, low, low + end);
-            siftDown(values, low, 0, end);
+            siftDown(values, low, 0, end, metrics);
         }
     }
 
-    private static void siftDown(int[] values, int offset, int root, int size) {
+    private static void siftDown(int[] values, int offset, int root, int size, SortMetrics metrics) {
         while (root * 2 + 1 < size) {
             int child = root * 2 + 1;
-            if (child + 1 < size && values[offset + child] < values[offset + child + 1]) {
-                child++;
+            if (child + 1 < size) {
+                if (metrics != null) {
+                    metrics.recordComparison();
+                }
+                if (values[offset + child] < values[offset + child + 1]) {
+                    child++;
+                }
+            }
+            if (metrics != null) {
+                metrics.recordComparison();
             }
             if (values[offset + root] >= values[offset + child]) {
                 return;

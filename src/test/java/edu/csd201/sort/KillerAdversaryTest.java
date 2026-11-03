@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,9 +12,17 @@ import static org.junit.jupiter.api.Assertions.*;
 public final class KillerAdversaryTest {
 
     private static final int N = 10_000;
+    private static final String[] PDQ_VARIANTS = {"full", "noA", "noB", "noA+noB"};
+    private static final boolean[][] PDQ_CONFIGURATIONS = {
+            {true, true},
+            {false, true},
+            {true, false},
+            {false, false}
+    };
     private static int cases;
     private static long worstComparisons;
     private static int worstDepth;
+    private static int worstN;
     private static String worstLabel = "none";
     private static int failures;
 
@@ -66,6 +75,77 @@ public final class KillerAdversaryTest {
     }
 
     @Test
+    @DisplayName("Metrics bật/tắt không làm thay đổi kết quả của bốn biến thể pdqsort")
+    public void testMetricsTogglePreservesOutput() {
+        int[][] inputs = {
+                {Integer.MIN_VALUE, -1, 0, 1, Integer.MAX_VALUE, -1},
+                filled(512, 7),
+                descending(1_024),
+                generateMed3Killer(2_048)
+        };
+        for (int inputIndex = 0; inputIndex < inputs.length; inputIndex++) {
+            int[] expected = inputs[inputIndex].clone();
+            Arrays.sort(expected);
+            for (int variant = 0; variant < PDQ_VARIANTS.length; variant++) {
+                int[] counted = inputs[inputIndex].clone();
+                int[] uncounted = inputs[inputIndex].clone();
+                SortMetrics metrics = new SortMetrics();
+                SortMetrics disabledMetrics = new SortMetrics(false);
+                PdqSort.sort(counted, PDQ_CONFIGURATIONS[variant][0],
+                        PDQ_CONFIGURATIONS[variant][1], metrics);
+                PdqSort.sort(uncounted, PDQ_CONFIGURATIONS[variant][0],
+                        PDQ_CONFIGURATIONS[variant][1], disabledMetrics);
+
+                String label = "input=" + inputIndex + ", variant=" + PDQ_VARIANTS[variant];
+                assertArrayEquals(expected, counted, "Counted result must match Arrays.sort: " + label);
+                assertArrayEquals(expected, uncounted, "Uncounted result must match Arrays.sort: " + label);
+                assertArrayEquals(counted, uncounted, "Metrics toggle changed output: " + label);
+                assertMetricsAreZero(disabledMetrics, label);
+                if (!PDQ_CONFIGURATIONS[variant][0]) {
+                    assertEquals(0, metrics.partialInsertionCount(),
+                            "Mechanism A disabled but partial insertion was recorded: " + label);
+                }
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Kiểm thử hiệu năng noB trên dữ liệu nhiều khóa trùng tại N=10^4..10^6")
+    public void testNoBDuplicateHeavyScaling() {
+        int[] sizes = {10_000, 100_000, 1_000_000};
+        for (int size : sizes) {
+            assertNoBPerformance("all-equal", filled(size, 17));
+            for (int distinctValues = 2; distinctValues <= 8; distinctValues++) {
+                int[] values = new int[size];
+                Random random = new Random(20261102L + distinctValues * 31L + size);
+                for (int index = 0; index < size; index++) {
+                    values[index] = random.nextInt(distinctValues) - distinctValues / 2;
+                }
+                assertNoBPerformance("random-" + distinctValues + "-values", values);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Bốn biến thể pdqsort trên dữ liệu nhiều khóa tại N=10^4..10^6")
+    public void testAllVariantsDuplicateHeavyScaling() {
+        int[] sizes = {10_000, 100_000, 1_000_000};
+        for (int size : sizes) {
+            for (int distinctValues : new int[]{2, 8}) {
+                int[] input = new int[size];
+                Random random = new Random(20261103L + distinctValues * 31L + size);
+                for (int index = 0; index < size; index++) {
+                    input[index] = random.nextInt(distinctValues) - distinctValues / 2;
+                }
+                int[] expected = input.clone();
+                Arrays.sort(expected);
+                assertPdqVariants("duplicate-heavy-" + distinctValues + "-values-n" + size,
+                        input, expected);
+            }
+        }
+    }
+
+    @Test
     @DisplayName("Kiểm thử tấn công leo đồi đối kháng (Hill-climbing adversary search)")
     public void testHillClimbingAdversary() {
         assertHillClimb(512, 4000, 12345L);
@@ -85,40 +165,46 @@ public final class KillerAdversaryTest {
         assertTrue(qsStats.comparisons >= 900_000L, "Musser/McIlroy killer must force quadratic comparisons (actual: " + qsStats.comparisons + ")");
 
         int[] sizes = {10_000, 100_000, 1_000_000};
+        long totalPdqHeapFallbacks = 0;
         for (int n : sizes) {
             int[] killer = generateMed3Killer(n);
             int[] expected = killer.clone();
             Arrays.sort(expected);
 
-            int[] pdqWork = killer.clone();
-            SortMetrics pdqMetrics = new SortMetrics();
-            PdqSort.sort(pdqWork, true, pdqMetrics);
-            assertArrayEquals(expected, pdqWork, "PdqSort must sort Musser/McIlroy killer at N=" + n);
-            assertTrue(pdqMetrics.heapFallbackCount() > 0, "PdqSort must trigger HeapSort fallback on Musser/McIlroy killer at N=" + n);
+            totalPdqHeapFallbacks += assertPdqVariants("musser-mcilroy-killer-n" + n, killer, expected);
 
             int[] quickWork = killer.clone();
             String qsStatus = runQuickSortWithBoundedStack(quickWork, expected);
-            assertTrue("ok".equals(qsStatus) || "crash".equals(qsStatus), "QuickSort status recorded for N=" + n + ": " + qsStatus);
+            System.out.printf(Locale.ROOT,
+                    "QUICKSORT_KILLER n=%d status=%s timeout_is_stack_overflow=false%n",
+                    n, qsStatus);
+            assertTrue("ok".equals(qsStatus) || "stack-overflow".equals(qsStatus),
+                    "QuickSort failed or timed out (timeout is not StackOverflowError) at N="
+                            + n + ": " + qsStatus);
         }
+        assertTrue(totalPdqHeapFallbacks > 0,
+                "The Musser/McIlroy killer family must reach HeapSort fallback at least once");
     }
 
     private static String runQuickSortWithBoundedStack(int[] work, int[] expected) {
-        final String[] status = {"crash"};
+        final String[] status = {"running"};
         Thread t = new Thread(null, () -> {
             try {
                 QuickSort.sort(work);
                 status[0] = Arrays.equals(expected, work) ? "ok" : "wrong";
             } catch (StackOverflowError err) {
-                status[0] = "crash";
+                status[0] = "stack-overflow";
             }
         }, "qs-killer-runner", 256 * 1024L);
+        t.setDaemon(true);
         t.start();
         try {
             t.join(10_000L);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            return "interrupted";
         }
-        return status[0];
+        return t.isAlive() ? "timeout" : status[0];
     }
 
     public static int[] generateMed3Killer(int n) {
@@ -152,14 +238,82 @@ public final class KillerAdversaryTest {
         assertArrayEquals(expected, work, "Family [" + label + "] must be sorted correctly");
         assertTrue(stats.maxDepth <= 200, "Family [" + label + "] maxDepth must be <= 200 (actual: " + stats.maxDepth + ")");
         assertTrue(stats.comparisons <= 40L * N * 14L, "Family [" + label + "] comparisons exceeded safety threshold");
+        assertPdqVariants(label, a, expected);
+    }
+
+    private static long assertPdqVariants(String label, int[] input, int[] expected) {
+        long heapFallbacks = 0;
+        int log2Ceiling = ceilLog2(input.length);
+        for (int variant = 0; variant < PDQ_VARIANTS.length; variant++) {
+            int[] work = input.clone();
+            SortMetrics metrics = new SortMetrics();
+            long started = System.nanoTime();
+            PdqSort.sort(work, PDQ_CONFIGURATIONS[variant][0],
+                    PDQ_CONFIGURATIONS[variant][1], metrics);
+            long elapsedNanos = System.nanoTime() - started;
+
+            String context = "Family [" + label + "], variant [" + PDQ_VARIANTS[variant] + "]";
+            assertArrayEquals(expected, work, context + " must match Arrays.sort");
+            if (input.length > 1) {
+                assertTrue(metrics.comparisonCount() > 0, context + " must count comparisons");
+                assertTrue(metrics.maxDepth() > 0, context + " must record max depth");
+            }
+            assertTrue(metrics.partitionCount() >= 0, context + " partition count must be non-negative");
+            assertTrue(metrics.heapFallbackCount() >= 0, context + " fallback count must be non-negative");
+            assertTrue(metrics.partialInsertionCount() >= 0,
+                    context + " partial insertion count must be non-negative");
+            if (!PDQ_CONFIGURATIONS[variant][0]) {
+                assertEquals(0, metrics.partialInsertionCount(),
+                        context + " must not run Mechanism A");
+            }
+            int depthLimit = input.length < 2 ? 0 : 2 * log2Ceiling + 1;
+            assertTrue(metrics.maxDepth() <= depthLimit,
+                    context + " exceeded depth bound: " + metrics.maxDepth());
+
+            System.out.printf(Locale.ROOT,
+                    "PDQ_METRICS family=%s variant=%s comparisons=%d max_depth=%d partitions=%d"
+                            + " heap_fallbacks=%d partial_insertions=%d elapsed_ms=%.3f%n",
+                    label, PDQ_VARIANTS[variant], metrics.comparisonCount(), metrics.maxDepth(),
+                    metrics.partitionCount(), metrics.heapFallbackCount(),
+                    metrics.partialInsertionCount(), elapsedNanos / 1_000_000.0);
+            heapFallbacks += metrics.heapFallbackCount();
+        }
+        return heapFallbacks;
+    }
+
+    private static void assertNoBPerformance(String label, int[] input) {
+        int[] expected = input.clone();
+        Arrays.sort(expected);
+        int[] work = input.clone();
+        SortMetrics metrics = new SortMetrics();
+        long started = System.nanoTime();
+        PdqSort.sort(work, true, false, metrics);
+        long elapsedNanos = System.nanoTime() - started;
+
+        assertArrayEquals(expected, work, "noB must sort " + label + " N=" + input.length);
+        System.out.printf(Locale.ROOT,
+                "PDQ_NOB_PERF dataset=%s n=%d comparisons=%d max_depth=%d partitions=%d"
+                        + " heap_fallbacks=%d partial_insertions=%d elapsed_ms=%.3f%n",
+                label, input.length, metrics.comparisonCount(), metrics.maxDepth(),
+                metrics.partitionCount(), metrics.heapFallbackCount(),
+                metrics.partialInsertionCount(), elapsedNanos / 1_000_000.0);
+    }
+
+    private static void assertMetricsAreZero(SortMetrics metrics, String context) {
+        assertEquals(0, metrics.comparisonCount(), context);
+        assertEquals(0, metrics.maxDepth(), context);
+        assertEquals(0, metrics.partitionCount(), context);
+        assertEquals(0, metrics.heapFallbackCount(), context);
+        assertEquals(0, metrics.partialInsertionCount(), context);
     }
 
     private static void assertHillClimb(int n, int evaluations, long seed) {
-        int bestDepth = runHillClimb(n, evaluations, seed);
-        assertTrue(bestDepth <= 200, "Hillclimb maxDepth must remain balanced <= 200");
+        HillClimbResult result = runHillClimb(n, evaluations, seed);
+        assertTrue(result.maxDepth <= 200, "Hillclimb maxDepth must remain balanced <= 200");
     }
 
     public static void main(String[] args) {
+        resetCliStatistics();
         System.out.println("=== Killer Adversary Test Suite (TV1) ===");
 
         cliFamily("all-equal", filled(N, 7));
@@ -198,10 +352,10 @@ public final class KillerAdversaryTest {
         cliHillClimb(2048, 1500, 98765L);
         cliMusserMcIlroyScaling();
 
-        System.out.println("KILLER_CASES=" + cases);
+        System.out.println("KILLER_DATASET_CASES=" + cases);
         System.out.println("KILLER_FAILURES=" + failures);
         System.out.println("KILLER_WORST=" + worstLabel + " comparisons=" + worstComparisons
-                + " maxDepth=" + worstDepth + " n=" + N);
+                + " maxDepth=" + worstDepth + " n=" + worstN);
 
         if (failures > 0) {
             System.err.println("RESULT: TESTS_FAILED");
@@ -216,36 +370,157 @@ public final class KillerAdversaryTest {
         Arrays.sort(expected);
         int[] work = a.clone();
         cases++;
+        boolean passed = true;
+        long started = System.nanoTime();
         try {
-            long start = System.nanoTime();
             QuickSort.Stats stats = QuickSort.sortCounted(work);
-            long elapsedUs = (System.nanoTime() - start) / 1000L;
-            boolean sorted = Arrays.equals(expected, work);
-            if (!sorted) {
+            long elapsedUs = (System.nanoTime() - started) / 1000L;
+            if (!Arrays.equals(expected, work)) {
                 failures++;
+                passed = false;
                 System.out.println("KILLER_FAIL " + label + " wrong order");
             }
-            if (stats.comparisons > worstComparisons) {
-                worstComparisons = stats.comparisons;
-                worstDepth = stats.maxDepth;
-                worstLabel = label;
+            recordCliWorst(label + "/QuickSort", stats.comparisons, stats.maxDepth, a.length);
+            if (stats.maxDepth > 200) {
+                failures++;
+                passed = false;
+                System.out.printf("KILLER_FAIL dataset=%s algorithm=QuickSort metric=maxDepth actual=%d limit=200%n",
+                        label, stats.maxDepth);
             }
-            if (stats.maxDepth > 200 || stats.comparisons > 40L * N * 14L) {
-                System.out.println("KILLER_SUSPECT " + label + " comparisons=" + stats.comparisons
-                        + " maxDepth=" + stats.maxDepth + " elapsed_us=" + elapsedUs);
+            long comparisonLimit = 40L * N * 14L;
+            if (stats.comparisons > comparisonLimit) {
+                failures++;
+                passed = false;
+                System.out.printf("KILLER_FAIL dataset=%s algorithm=QuickSort metric=comparisons actual=%d limit=%d%n",
+                        label, stats.comparisons, comparisonLimit);
             }
+            System.out.printf(Locale.ROOT,
+                    "QUICKSORT_CLI dataset=%s comparisons=%d maxDepth=%d elapsed_us=%d status=%s%n",
+                    label, stats.comparisons, stats.maxDepth, elapsedUs, passed ? "PASS" : "FAIL");
         } catch (Throwable thrown) {
             failures++;
-            System.out.println("KILLER_THROW " + label + " " + thrown.getClass().getName()
-                    + ": " + thrown.getMessage());
+            System.out.printf(Locale.ROOT,
+                    "QUICKSORT_CLI dataset=%s elapsed_us=%d status=FAIL exception=%s message=%s%n",
+                    label, (System.nanoTime() - started) / 1_000L,
+                    thrown.getClass().getName(), thrown.getMessage());
+        }
+        cliPdqVariants(label, a, expected);
+    }
+
+    private static void cliPdqVariants(String label, int[] input, int[] expected) {
+        for (int variant = 0; variant < PDQ_VARIANTS.length; variant++) {
+            String variantName = PDQ_VARIANTS[variant];
+            int[] work = input.clone();
+            SortMetrics metrics = new SortMetrics();
+            boolean variantPassed = true;
+            long started = System.nanoTime();
+            try {
+                PdqSort.sort(work, PDQ_CONFIGURATIONS[variant][0],
+                        PDQ_CONFIGURATIONS[variant][1], metrics);
+                long elapsedNanos = System.nanoTime() - started;
+                if (!Arrays.equals(expected, work)) {
+                    failures++;
+                    variantPassed = false;
+                    System.out.printf("PDQ_FAIL dataset=%s variant=%s wrong order%n",
+                            label, variantName);
+                }
+                if (!PDQ_CONFIGURATIONS[variant][0] && metrics.partialInsertionCount() != 0) {
+                    failures++;
+                    variantPassed = false;
+                    System.out.printf("PDQ_FAIL dataset=%s variant=%s Mechanism A ran while disabled%n",
+                            label, variantName);
+                }
+                int log2Ceiling = ceilLog2(input.length);
+                long depthLimit = input.length < 2 ? 0 : 2L * log2Ceiling + 1;
+                long minimumCountedValue = input.length < 2 ? 0 : 1;
+                variantPassed &= reportCliMetricCheck(label, variantName, "comparisons",
+                        metrics.comparisonCount(), minimumCountedValue, Long.MAX_VALUE);
+                variantPassed &= reportCliMetricCheck(label, variantName, "maxDepth",
+                        metrics.maxDepth(), minimumCountedValue, depthLimit);
+                variantPassed &= reportCliMetricCheck(label, variantName, "partitions",
+                        metrics.partitionCount(), 0, Long.MAX_VALUE);
+                variantPassed &= reportCliMetricCheck(label, variantName, "heapFallbacks",
+                        metrics.heapFallbackCount(), 0, Long.MAX_VALUE);
+                variantPassed &= reportCliMetricCheck(label, variantName, "partialInsertions",
+                        metrics.partialInsertionCount(), 0, Long.MAX_VALUE);
+                if (metrics.comparisonCount() > worstComparisons) {
+                    recordCliWorst(label + "/" + variantName,
+                            metrics.comparisonCount(), metrics.maxDepth(), input.length);
+                }
+                System.out.printf(Locale.ROOT,
+                        "PDQ_METRICS dataset=%s variant=%s comparisons=%d maxDepth=%d partitions=%d"
+                                + " heapFallbacks=%d partialInsertions=%d elapsed_ms=%.3f status=%s%n",
+                        label, variantName, metrics.comparisonCount(), metrics.maxDepth(),
+                        metrics.partitionCount(), metrics.heapFallbackCount(),
+                        metrics.partialInsertionCount(), elapsedNanos / 1_000_000.0,
+                        variantPassed ? "PASS" : "FAIL");
+            } catch (Throwable thrown) {
+                failures++;
+                long elapsedNanos = System.nanoTime() - started;
+                System.out.printf(Locale.ROOT,
+                        "PDQ_THROW dataset=%s variant=%s exception=%s message=%s elapsed_ms=%.3f%n",
+                        label, variantName, thrown.getClass().getName(), thrown.getMessage(),
+                        elapsedNanos / 1_000_000.0);
+                System.out.printf(Locale.ROOT,
+                        "PDQ_METRICS dataset=%s variant=%s comparisons=%d maxDepth=%d partitions=%d"
+                                + " heapFallbacks=%d partialInsertions=%d elapsed_ms=%.3f status=FAIL%n",
+                        label, variantName, metrics.comparisonCount(), metrics.maxDepth(),
+                        metrics.partitionCount(), metrics.heapFallbackCount(),
+                        metrics.partialInsertionCount(), elapsedNanos / 1_000_000.0);
+            }
         }
     }
 
-    private static void cliHillClimb(int n, int evaluations, long seed) {
-        int bestDepth = runHillClimb(n, evaluations, seed);
-        if (bestDepth > 200) {
+    private static int ceilLog2(int value) {
+        return value <= 1 ? 0 : 32 - Integer.numberOfLeadingZeros(value - 1);
+    }
+
+    private static boolean reportCliMetricCheck(
+            String dataset, String variant, String metric, long actual, long minimum, long maximum) {
+        if (actual < minimum || actual > maximum) {
             failures++;
+            System.out.printf(Locale.ROOT,
+                    "PDQ_METRIC_FAIL dataset=%s variant=%s metric=%s actual=%d allowed=[%d,%d]%n",
+                    dataset, variant, metric, actual, minimum, maximum);
+            return false;
         }
+        return true;
+    }
+
+    private static void recordCliWorst(String label, long comparisons, int depth, int n) {
+        if (comparisons <= worstComparisons) {
+            return;
+        }
+        worstComparisons = comparisons;
+        worstDepth = depth;
+        worstN = n;
+        worstLabel = label;
+    }
+
+    private static void resetCliStatistics() {
+        cases = 0;
+        worstComparisons = 0;
+        worstDepth = 0;
+        worstN = 0;
+        worstLabel = "none";
+        failures = 0;
+    }
+
+    private static void cliHillClimb(int n, int evaluations, long seed) {
+        HillClimbResult result = runHillClimb(n, evaluations, seed);
+        boolean passed = result.maxDepth <= 200;
+        if (!passed) {
+            failures++;
+            System.out.printf(Locale.ROOT,
+                    "KILLER_HILLCLIMB_FAIL n=%d metric=maxDepth actual=%d limit=200%n",
+                    n, result.maxDepth);
+        }
+        cases++;
+        recordCliWorst("hillclimb-n" + n, result.comparisons, result.maxDepth, n);
+        System.out.println("KILLER_HILLCLIMB n=" + n + " evaluations=" + evaluations
+                + " bestComparisons=" + result.comparisons + " bestMaxDepth=" + result.maxDepth
+                + " depthLimit=200 nLog2n=" + Math.round(n * (Math.log(n) / Math.log(2)))
+                + " status=" + (passed ? "PASS" : "FAIL"));
     }
 
     private static void cliMusserMcIlroyScaling() {
@@ -255,32 +530,29 @@ public final class KillerAdversaryTest {
             int[] expected = killer.clone();
             Arrays.sort(expected);
 
-            int[] pdqWork = killer.clone();
-            SortMetrics pdqMetrics = new SortMetrics();
-            long t0 = System.nanoTime();
-            PdqSort.sort(pdqWork, true, pdqMetrics);
-            double pdqMs = (System.nanoTime() - t0) / 1e6;
-            boolean pdqOk = Arrays.equals(expected, pdqWork);
-            if (!pdqOk) {
-                failures++;
-            }
+            cliPdqVariants("musser-mcilroy-killer-n" + n, killer, expected);
 
             int[] qsWork = killer.clone();
             long qsStart = System.nanoTime();
             String rawStatus = runQuickSortWithBoundedStack(qsWork, expected);
             double qsMs = (System.nanoTime() - qsStart) / 1e6;
-            String qsStatus = "crash".equals(rawStatus) ? "crash (StackOverflowError)" : rawStatus;
-            if ("wrong".equals(rawStatus)) {
+            String qsStatus = switch (rawStatus) {
+                case "stack-overflow" -> "StackOverflowError";
+                case "timeout" -> "timeout";
+                case "interrupted" -> "interrupted";
+                default -> rawStatus;
+            };
+            if (!"ok".equals(rawStatus) && !"stack-overflow".equals(rawStatus)) {
                 failures++;
             }
+            System.out.printf(Locale.ROOT,
+                    "MUSSER_KILLER n=%d QuickSort=[status=%s, time_ms=%.2f]%n",
+                    n, qsStatus, qsMs);
             cases++;
-            System.out.printf(java.util.Locale.ROOT,
-                    "MUSSER_KILLER n=%d QuickSort=[status=%s, time_ms=%.2f] PdqSort=[status=%s, time_ms=%.2f, maxDepth=%d, heapFallbacks=%d]%n",
-                    n, qsStatus, qsMs, pdqOk ? "ok" : "wrong", pdqMs, pdqMetrics.maxDepth(), pdqMetrics.heapFallbackCount());
         }
     }
 
-    private static int runHillClimb(int n, int evaluations, long seed) {
+    private static HillClimbResult runHillClimb(int n, int evaluations, long seed) {
         Random rnd = new Random(seed);
         int[] current = new int[n];
         for (int i = 0; i < n; i++) {
@@ -328,16 +600,10 @@ public final class KillerAdversaryTest {
                 }
             }
         }
-        cases++;
-        System.out.println("KILLER_HILLCLIMB n=" + n + " evaluations=" + evaluations
-                + " bestComparisons=" + best + " bestMaxDepth=" + bestDepth
-                + " nLog2n=" + Math.round(n * (Math.log(n) / Math.log(2))));
-        if (best > worstComparisons) {
-            worstComparisons = best;
-            worstDepth = bestDepth;
-            worstLabel = "hillclimb-n" + n;
-        }
-        return bestDepth;
+        return new HillClimbResult(best, bestDepth);
+    }
+
+    private record HillClimbResult(long comparisons, int maxDepth) {
     }
 
     private static long score(int[] a) {
