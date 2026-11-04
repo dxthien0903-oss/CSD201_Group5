@@ -1,5 +1,8 @@
 package edu.csd201.sort;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -10,9 +13,13 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Random;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 /**
- * Kiểm thử Radix Sort (TV4). Chạy từ thư mục gốc repo:
- *   java -cp target/classes edu.csd201.sort.RadixTest [duong_dan_log]
+ * Kiểm thử Radix Sort (TV4), 7 nhóm kiểm thử. Chạy từ thư mục gốc repo:
+ *   JUnit 5 (7 test): mvn test -Dtest=RadixTest
+ *   CLI (sinh test log): java -cp "target/classes;target/test-classes" edu.csd201.sort.RadixTest [duong_dan_log]
+ *   (Linux/macOS dùng dấu : thay cho ;)
  * - Ghi test log ra file (mặc định results/radix_test_log.txt) và thoát với mã 1 nếu có lỗi.
  * - Nhóm 1: 5 ca cố định của đề (+ mảng rỗng, giá trị biên).
  * - Nhóm 2: 1.000 mảng ngẫu nhiên kích thước 0-100, đủ D1-D5 (D5 với K = 1000, 10, 2).
@@ -25,18 +32,21 @@ import java.util.Random;
  */
 public final class RadixTest {
 
-    private RadixTest() {
+    public RadixTest() {
     }
 
     static PrintWriter log;
     static int total = 0, fails = 0;
+
+    /** Các giá trị K của D5 trong RQ2. */
+    private static final int[] ks = {1000, 10, 2};
 
     static void check(boolean ok, String name) {
         total++;
         if (!ok) { fails++; say("FAIL  " + name); }
     }
 
-    static void say(String s) { System.out.println(s); log.println(s); }
+    static void say(String s) { System.out.println(s); if (log != null) log.println(s); }
 
     /** Chạy cả bản không đếm và bản có đếm trên bản sao của a, so với Arrays.sort. */
     static boolean sortsCorrectly(int[] a) {
@@ -56,22 +66,21 @@ public final class RadixTest {
         return Arrays.equals(a, b);
     }
 
-    public static void main(String[] args) throws IOException {
-        Path logPath = Path.of(args.length > 0 ? args[0] : "results/radix_test_log.txt");
-        if (logPath.toAbsolutePath().getParent() != null) Files.createDirectories(logPath.toAbsolutePath().getParent());
-        log = new PrintWriter(new OutputStreamWriter(new FileOutputStream(logPath.toFile()), "UTF-8"), true);
-        say("=== RadixTest ===");
-
+    // ---------------------------------------------------------------- Nhóm 1
+    static void group1() throws IOException {
         // Nhóm 1: ca cố định
         int[][] fixed = {{7}, {2, 1}, {3, 3, 3}, {0, 2147483647, 0}, {5, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5},
                 {}, {2147483647, 2147483647}, {256, 255, 65536, 65535, 16777216, 16777215, 0}};
         for (int i = 0; i < fixed.length; i++) check(sortsCorrectly(fixed[i]), "fixed#" + i + " " + Arrays.toString(fixed[i]));
         say("Nhóm 1 (ca cố định): xong");
 
+    }
+
+    // ---------------------------------------------------------------- Nhóm 2
+    static void group2() throws IOException {
         // Nhóm 2: 1.000 mảng ngẫu nhiên 0-100, đủ D1-D5
         Random r = new Random(1);
         String[] ds = {"D1", "D2", "D3", "D4", "D5"};
-        int[] ks = {1000, 10, 2};
         for (int t = 0; t < 1000; t++) {
             int n = r.nextInt(101);
             String d = ds[t % 5];
@@ -81,6 +90,10 @@ public final class RadixTest {
         }
         say("Nhóm 2 (1.000 mảng ngẫu nhiên, seed = chỉ số lượt): xong");
 
+    }
+
+    // ---------------------------------------------------------------- Nhóm 3
+    static void group3() throws IOException {
         // Nhóm 3: 100.000 phần tử đặc biệt
         int big = 100000;
         int[] eq = new int[big], inc = new int[big], dec = new int[big];
@@ -90,6 +103,10 @@ public final class RadixTest {
         check(sortsCorrectly(dec), "100000 giảm dần");
         say("Nhóm 3 (100.000 phần tử): xong");
 
+    }
+
+    // ---------------------------------------------------------------- Nhóm 4
+    static void group4() throws IOException {
         // Nhóm 4: bộ đếm
         int[] sizes = {0, 1, 2, 3, 1000, 100000};
         for (int n : sizes) {
@@ -102,6 +119,10 @@ public final class RadixTest {
         }
         say("Nhóm 4 (bộ đếm 8N / 4N): xong");
 
+    }
+
+    // ---------------------------------------------------------------- Nhóm 5
+    static void group5() throws IOException {
         // Nhóm 5: generator
         int n = 100000;
         int[] d1 = DataGenerator.generateSpec("D1", n, 0, 3), d2 = DataGenerator.generateSpec("D2", n, 0, 3),
@@ -143,6 +164,10 @@ public final class RadixTest {
         check(threw1 && threw2 && threw3, "dataset sai / K = 0 / N âm bị từ chối");
         say("Nhóm 5 (generator): xong");
 
+    }
+
+    // ---------------------------------------------------------------- Nhóm 6
+    static void group6() throws IOException {
         // Mẫu đặc biệt: kiểm tra từng lượt (byte) của Radix
         int m = 50000;
         int[] lowOnly = new int[m], highOnly = new int[m], mult24 = new int[m], altern = new int[m],
@@ -173,6 +198,10 @@ public final class RadixTest {
         check(Arrays.equals(odd, odd2), "sort lần hai trên mảng đã sắp không đổi");
         say("Nhóm 6 (mẫu đặc biệt theo byte): xong");
 
+    }
+
+    // ---------------------------------------------------------------- Nhóm 7
+    static void group7() throws IOException {
         // Nhóm 7: khóa âm / toàn dải int (đề chỉ dùng khóa không âm, nhưng test và phân phối tạm của nhóm có số âm)
         int[][] neg = {{-1, 0, 1}, {Integer.MIN_VALUE, Integer.MAX_VALUE}, {Integer.MAX_VALUE, Integer.MIN_VALUE, 0, -1, 1},
                 {-5, -5, -5}, {Integer.MIN_VALUE, Integer.MIN_VALUE + 1, -1, 0}, {-256, -255, 255, 256, -65536, 65536}};
@@ -197,6 +226,82 @@ public final class RadixTest {
             check(ok && s.size() == k && sortsCorrectly(d5), "DataGenerator.generateManyDuplicatesK K=" + k + " (có " + s.size() + " giá trị phân biệt)");
         }
         say("Nhóm 7 (khóa âm, DataGenerator chung): xong");
+
+    }
+
+    // ---------------------------------------------------------------- JUnit 5 (mvn test -Dtest=RadixTest)
+    private interface IOGroup {
+        void run() throws IOException;
+    }
+
+    /** Chạy một nhóm: đặt lại bộ đếm, chạy, rồi yêu cầu không có kiểm tra nào sai. */
+    private static void runGroup(IOGroup g) {
+        total = 0;
+        fails = 0;
+        try {
+            g.run();
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        assertEquals(0, fails, "Số kiểm tra sai (xem các dòng FAIL trên màn hình)");
+    }
+
+    @Test
+    @DisplayName("Nhóm 1: 5 ca cố định của đề, mảng rỗng, giá trị biên")
+    void nhom1_caCoDinh() {
+        runGroup(RadixTest::group1);
+    }
+
+    @Test
+    @DisplayName("Nhóm 2: 1.000 mảng ngẫu nhiên 0-100 phần tử qua D1-D5 (D5 với K = 1000, 10, 2)")
+    void nhom2_ngauNhien() {
+        runGroup(RadixTest::group2);
+    }
+
+    @Test
+    @DisplayName("Nhóm 3: 100.000 phần tử bằng nhau / tăng dần / giảm dần")
+    void nhom3_mang100000() {
+        runGroup(RadixTest::group3);
+    }
+
+    @Test
+    @DisplayName("Nhóm 4: bộ đếm reads = 8N, writes = 4N, mảng phụ 4N byte")
+    void nhom4_boDem() {
+        runGroup(RadixTest::group4);
+    }
+
+    @Test
+    @DisplayName("Nhóm 5: tính chất của generator D1-D5 và tham số sai bị từ chối")
+    void nhom5_generator() {
+        runGroup(RadixTest::group5);
+    }
+
+    @Test
+    @DisplayName("Nhóm 6: mẫu đặc biệt theo byte (byte cao, bội của 2^24, cận 2^31-1, xen kẽ 0/MAX)")
+    void nhom6_mauByte() {
+        runGroup(RadixTest::group6);
+    }
+
+    @Test
+    @DisplayName("Nhóm 7: khóa âm, toàn dải int, DataGenerator chung và D5 đúng đề")
+    void nhom7_khoaAm() {
+        runGroup(RadixTest::group7);
+    }
+
+    // ---------------------------------------------------------------- CLI (sinh test log, thoát mã 1 nếu có lỗi)
+    public static void main(String[] args) throws IOException {
+        Path logPath = Path.of(args.length > 0 ? args[0] : "results/radix_test_log.txt");
+        if (logPath.toAbsolutePath().getParent() != null) Files.createDirectories(logPath.toAbsolutePath().getParent());
+        log = new PrintWriter(new OutputStreamWriter(new FileOutputStream(logPath.toFile()), "UTF-8"), true);
+        say("=== RadixTest ===");
+
+        group1();
+        group2();
+        group3();
+        group4();
+        group5();
+        group6();
+        group7();
 
         say("TỔNG: " + total + " kiểm tra, lỗi = " + fails);
         say(fails == 0 ? "KẾT QUẢ: ĐẠT" : "KẾT QUẢ: KHÔNG ĐẠT");
