@@ -62,7 +62,7 @@ PASS sort(null) ném NullPointerException
 PASS sort(arr, null) ném NullPointerException
 PASS sortCounted(null, m) ném NullPointerException
 [single allocation of temp array]
-PASS N=10^6: sort() cấp phát ≈ một mảng int[N] (4000000 B), thực tế 4000056 B
+PASS N=10^6: sort() cấp phát ≈ một mảng int[N] (4000000 B), thực tế 4000016 B
 PASS N=10^6: sorted correctly
 [exhaustive sweep]
 PASS all 3280 arrays of length 0..7 over {0,1,2} sort correctly
